@@ -31,4 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 
-plans/
+.terraform
+.terraform.lock.hcl
+terraform.tfstate.backup

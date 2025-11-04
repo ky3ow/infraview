@@ -1,3 +1,22 @@
+# Main functionality
+
+- Http server for interactive graph
+- See plan, see state
+- Highlight resources(create,update,delete)
+- Filter
+- Group resources into blocks, zoom out, zoom in
+- Show dependencies
+- Resource details
+
+## Nice to have
+
+- Namespaces
+- Projects
+- History
+- User rules for custom grouping
+- IdP integration, RBAC
+- Addons(e.g. infracost annotations)
+
 # Insiprations
 
 - [rover](https://github.com/im2nguyen/rover)

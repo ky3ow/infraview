@@ -28,14 +28,8 @@
 - [terraform json output](https://developer.hashicorp.com/terraform/internals/json-format)
 - [go helper library](https://github.com/hashicorp/terraform-json)
 - [some article](https://getcoal.medium.com/golang-handling-terraform-files-a37371c621e3)
-
-
-## Go code organization
-
-- https://go.dev/talks/2014/organizeio.slide
-- https://go.dev/blog/organizing-go-code
+- [mock terraform provider used for initial testing](https://github.com/hashicorp/terraform-provider-tfcoremock/tree/main)
 - [layout](https://github.com/golang-standards/project-layout?tab=readme-ov-file#go-directories)
-- https://go.dev/doc/code
 
 # Terraform json representation
 

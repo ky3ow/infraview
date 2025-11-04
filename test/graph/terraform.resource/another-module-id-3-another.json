@@ -1,0 +1,10 @@
+{
+  "values": {
+    "id": {
+      "string": "another-module-id-3-another"
+    },
+    "number": {
+      "number": "3"
+    }
+  }
+}

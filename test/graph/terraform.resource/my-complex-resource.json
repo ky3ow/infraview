@@ -1,0 +1,141 @@
+{
+  "values": {
+    "id": {
+      "string": "my-complex-resource"
+    },
+    "list": {
+      "list": [
+        {
+          "object": {
+            "string": {
+              "string": "Hello, world!"
+            }
+          }
+        },
+        {
+          "object": {
+            "string": {
+              "string": "list.two"
+            }
+          }
+        }
+      ]
+    },
+    "list_block": {
+      "list": [
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "list_block.one"
+            }
+          }
+        },
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "list_block.2"
+            }
+          }
+        },
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "list_block.3"
+            }
+          }
+        }
+      ]
+    },
+    "map": {
+      "map": {
+        "one": {
+          "object": {
+            "string": {
+              "string": "map.one"
+            }
+          }
+        },
+        "two": {
+          "object": {
+            "string": {
+              "string": "map.two"
+            }
+          }
+        }
+      }
+    },
+    "object": {
+      "object": {
+        "object": {
+          "object": {
+            "string": {
+              "string": "nested nested object"
+            }
+          }
+        },
+        "string": {
+          "string": "nested object"
+        }
+      }
+    },
+    "set": {
+      "set": [
+        {
+          "object": {
+            "string": {
+              "string": "set.one"
+            }
+          }
+        }
+      ]
+    },
+    "set_block": {
+      "set": [
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "set_block.one"
+            }
+          }
+        },
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "set_block.two"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

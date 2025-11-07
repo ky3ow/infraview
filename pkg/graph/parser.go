@@ -108,7 +108,13 @@ func generateEdges(p *tfjson.Plan) []Edge {
 		edges = append(edges, processExpressions(moduleAddress, m.Expressions)...)
 
 		for _, r := range m.Module.Resources {
-			edges = append(edges, processExpressions(moduleAddress+"."+r.Address, r.Expressions)...)
+			resourceAddress := moduleAddress+"."+r.Address
+			edges = append(edges, processExpressions(resourceAddress, r.Expressions)...)
+
+			edges = append(edges, Edge{
+				From: resourceAddress,
+				To: moduleAddress,
+			})
 		}
 	}
 

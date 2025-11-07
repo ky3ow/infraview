@@ -23,7 +23,7 @@
         });
       }
       for (const e of graph.edges) {
-		  if ((e.from.split('.').length - 1 % 2 == 1) && (e.to.split('.').length - 1 % 2 == 1) && (!e.from.startsWith('var.'))) {
+		  if (((e.from.split('.').length - 1) % 2 == 1) && ((e.to.split('.').length - 1) % 2 == 1) && (!e.from.startsWith('var.'))) {
 			elements.push({ data: { source: e.from, target: e.to } });
 		  }
       }

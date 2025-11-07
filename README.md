@@ -1,21 +1,25 @@
 # Main functionality
 
 - Http server for interactive graph
-- See plan, see state
-- Highlight resources(create,update,delete)
-- Filter
-- Group resources into blocks, zoom out, zoom in
-- Show dependencies
-- Resource details
+- See graph of your resources and variables, with connections between and dependencies
+- Highlight resource operations(create,update,delete)
+- Filtering
+- Grouping
+- Resource details, what triggered the change, old/new values
+- Plan history, separated by "namespaces"(e.g. you create namespace per git branch)
+- CI/CD integration via REST api calls(possibly cli tool as project grows)
 
 ## Nice to have
 
-- Namespaces
-- Projects
-- History
 - User rules for custom grouping
 - IdP integration, RBAC
-- Addons(e.g. infracost annotations)
+- Addons(e.g. infracost annotations, probably just client side visual things from data supplied with plan?)
+
+## Non-goals
+
+Any sort of actions in Core, like applies or approvals, can be partially solved with addons. 
+
+Example: show the pending approval in UI, and on click redirect user to actual approval url(e.g. github actions)
 
 # Insiprations
 

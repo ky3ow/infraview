@@ -4,31 +4,61 @@
     <meta charset="UTF-8" />
     <title>{{.Title}}</title>
     <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+    <script type="module" src="https://unpkg.com/lighterhtml?module"></script>
     <style>
       body { margin: 0; font-family: sans-serif; }
       #graph { width: 90%; height: 95vh; }
+      #popup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #popup.hidden { display: none; }
+    #popup-content {
+      background: #fff;
+      width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border-radius: 6px;
+      padding: 1rem 1.5rem;
+    }
+    #tabs button {
+      margin-right: .5rem;
+      padding: .25rem .75rem;
+    }
+    #tab-content pre {
+      background: #f8f8f8;
+      padding: .5rem;
+      white-space: pre-wrap;
+    }
     </style>
   </head>
   <body>
     <div id="graph"></div>
-    <script>
+    <div id="popup" class="hidden">
+  </div>
+    <script type="module">
+      import {html, render} from 'https://unpkg.com/lighterhtml?module';
       const graph = {{.Graph}};
 
-	  window.Graph = graph
+      window.Graph = graph
 
       const elements = [];
       for (const [id, n] of Object.entries(graph.nodes)) {
+        n.address = id;
         elements.push({
-          data: { id, label: id, action: n.changes?.actions?.[0] || "none" },
+          data: { id, label: id, action: n.changes?.actions?.[0] || "no-op" },
         });
       }
       for (const e of graph.edges) {
-		  if (((e.from.split('.').length - 1) % 2 == 1) && ((e.to.split('.').length - 1) % 2 == 1) && (!e.from.startsWith('var.'))) {
-			elements.push({ data: { source: e.from, target: e.to } });
-		  }
+          if (((e.from.split('.').length - 1) % 2 == 1) && ((e.to.split('.').length - 1) % 2 == 1) && (!e.from.startsWith('var.'))) {
+            elements.push({ data: { source: e.from, target: e.to } });
+          }
       }
 
-      cytoscape({
+      const cy = cytoscape({
         container: document.getElementById("graph"),
         elements,
         layout: { name: "breadthfirst", directed: true },
@@ -42,6 +72,129 @@
           { selector: 'node[action="update"]',
             style: { "background-color": "#f39c12" } },
         ],
+      });
+
+    let activeTab = 'parameters';
+    const popupEl = document.getElementById('popup');
+
+    function ChangeRow({ key, before, after }) {
+        const isPrimitive = typeof before !== 'object' && typeof after !== 'object';
+        const isSame = before == after
+        return html`
+          <tr>
+            <td style="vertical-align: top; width: 25%; font-weight: bold;">${key}</td>
+            <td style="width: 35%; background: #f8f8f8;">
+              ${isPrimitive ? String(before ?? '') : html`<pre>${JSON.stringify(before, null, 2)}</pre>`}
+            </td>
+            <td style="width: 35%; background: #f8f8f8;">
+              ${isPrimitive ? isSame ? "No changes" : String(after ?? '') : html`<pre>${JSON.stringify(after, null, 2)}</pre>`}
+            </td>
+          </tr>
+        `;
+      }
+
+      function Parameters(node) {
+        return html`
+          <table style="width:100%; border-collapse: collapse; border-spacing:0;">
+            <tbody>
+              <tr>
+                <td style="vertical-align: top; width: 50%; font-weight: bold;">Address</td>
+                <td style="width: 50%; background: #f8f8f8;">${node.address}</td>
+              </tr>
+              <tr>
+                <td style="vertical-align: top; width: 50%; font-weight: bold;">Name</td>
+                <td style="width: 50%; background: #f8f8f8;">${node.name}</td>
+              </tr>
+              <tr>
+                <td style="vertical-align: top; width: 50%; font-weight: bold;">Type</td>
+                <td style="width: 50%; background: #f8f8f8;">${node.type}</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3>Parameters:</h3>
+          ${node.parameters.length
+            ? html`<ul>${node.parameters.map(p => html`<li>${p}</li>`)}</ul>`
+            : html`<em>No parameters</em>`}
+        `;
+      }
+
+    function Changes({ before = {}, after = {} }) {
+        const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        return html`
+          <table style="width:100%; border-collapse: collapse; border-spacing:0;">
+            <thead>
+              <tr style="background:#eee;">
+                <th style="width:25%;text-align:left;">Field</th>
+                <th style="width:35%;">Current</th>
+                <th style="width:35%;">Planned</th>
+              </tr>
+            </thead>
+            <tbody>
+                  ${[...keys].map(k => ({ key: k, before: before[k], after: after[k] }))
+                     .filter(val => ((val.before !== null) && (val.before !== undefined)) || ((val.after !== null) && (val.after !== undefined)))
+                     .map(val => ChangeRow(val))}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function Popup({nodeData}) {
+        const before = nodeData.changes?.before || {};
+        const after  = nodeData.changes?.after || {};
+
+        const renderActive = () => {
+          switch (activeTab) {
+            case 'changes': return Changes({before, after});
+            default: return Parameters(nodeData);
+          }
+        };
+
+        return html`
+          <div id="popup-content">
+            <h2>${nodeData.name || nodeData.id}</h2>
+
+            <div id="tabs">
+              ${['parameters','changes'].map(tab =>
+                html`
+                  <button
+                    class=${activeTab===tab ? 'active' : ''}
+                    onclick=${() => update(tab)}>
+                    ${tab === 'parameters'
+                      ? 'Parameters'
+                      : 'Changes'}
+                  </button>
+                `
+              )}
+            </div>
+
+            <div id="tab-content">${renderActive()}</div>
+            <button id="close" onclick=${closePopup}>Close</button>
+          </div>
+        `;
+      }
+
+      function update(tab) {
+        activeTab = tab;
+        renderPopup(currentNodeData);
+      }
+
+      let currentNodeData = null;
+
+      function renderPopup(nodeData) {
+        currentNodeData = nodeData;
+        popupEl.classList.remove('hidden');
+        render(popupEl, html`${Popup({nodeData})}`);
+      }
+
+      function closePopup() {
+        popupEl.classList.add('hidden');
+      }
+
+      // -------- Cytoscape event ----------
+      cy.on('tap','node', e => {
+        const nodeID = e.target.id();
+        const nodeData = graph.nodes[nodeID];
+        if (nodeData) renderPopup(nodeData);
       });
     </script>
   </body>

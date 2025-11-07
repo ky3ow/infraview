@@ -3,10 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <title>{{.Title}}</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+    <style>
+      body { margin: 0; font-family: sans-serif; }
+      #graph { width: 90%; height: 95vh; }
+    </style>
   </head>
   <body>
-    <h1>{{.Title}}</h1>
-    <p>{{.Message}}</p>
+    <div id="graph"></div>
+    <script>
+      const graph = {{.Graph}};
+
+	  window.Graph = graph
+
+      const elements = [];
+      for (const [id, n] of Object.entries(graph.nodes)) {
+        elements.push({
+          data: { id, label: id, action: n.changes?.actions?.[0] || "none" },
+        });
+      }
+      for (const e of graph.edges) {
+		  if ((e.from.split('.').length - 1 % 2 == 1) && (e.to.split('.').length - 1 % 2 == 1) && (!e.from.startsWith('var.'))) {
+			elements.push({ data: { source: e.from, target: e.to } });
+		  }
+      }
+
+      cytoscape({
+        container: document.getElementById("graph"),
+        elements,
+        layout: { name: "breadthfirst", directed: true },
+        style: [
+          { selector: "node",
+            style: { label: "data(label)", "background-color": "#ccc" } },
+          { selector: 'node[action="create"]',
+            style: { "background-color": "#27ae60" } },
+          { selector: 'node[action="delete"]',
+            style: { "background-color": "#e74c3c" } },
+          { selector: 'node[action="update"]',
+            style: { "background-color": "#f39c12" } },
+        ],
+      });
+    </script>
   </body>
 </html>

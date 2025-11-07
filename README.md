@@ -30,6 +30,9 @@
 - [some article](https://getcoal.medium.com/golang-handling-terraform-files-a37371c621e3)
 - [mock terraform provider used for initial testing](https://github.com/hashicorp/terraform-provider-tfcoremock/tree/main)
 - [layout](https://github.com/golang-standards/project-layout?tab=readme-ov-file#go-directories)
+- [Cytoscape.js, library for graph visualization](https://js.cytoscape.org)
+- [cytoscape-klay, another algorithm for cytoscape]()
+- [another graph lib](https://www.sigmajs.org)
 
 # Terraform json representation
 
@@ -211,3 +214,33 @@
   "checks" <checks-representation>
 }
 ```
+
+
+## Food for thought
+
+### Configuration
+
+Has `root_module` that contains array of resources
+Has `module_calls`, a map of "name -> metadata", contains source, expressions(call parameters), module field(map of outputs, array of resources)
+
+#### Resource
+
+- address
+- mode(managed, or data)
+- type(resource kind, e.g. s3 bucket)
+- name
+- provider config key
+- expressions array
+- depends_on array
+
+#### Expressions
+
+Map of Name -> value
+
+value can be:
+
+- object with key `constant_value`, which has a constant value
+- object with key `references`, which is array, defines dependencies
+- array of Expressions(map Name -> value)
+
+If a value, or block has a reference on other dependency - WHOLE value or block is replaced with `references` in the configuration section

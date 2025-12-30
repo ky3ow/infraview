@@ -51,6 +51,9 @@ resource "tfcoremock_complex_resource" "example" {
     {
       string = "set.one"
     },
+    {
+      string = tfcoremock_simple_resource.example.string
+    }
   ]
 
   map = {
@@ -58,13 +61,13 @@ resource "tfcoremock_complex_resource" "example" {
       string = "map.one"
     },
     "two" : {
-      string = "map.two"
+      string = tfcoremock_simple_resource.example.string
     }
   }
 
   object = {
 
-    string = "nested object"
+    string = tfcoremock_simple_resource.example.string
 
     object = {
       string = "nested nested object"
@@ -72,7 +75,7 @@ resource "tfcoremock_complex_resource" "example" {
   }
 
   list_block {
-    string = "list_block.one"
+    string = tfcoremock_simple_resource.example_dep_explicit.string
   }
 
   list_block {
@@ -84,7 +87,7 @@ resource "tfcoremock_complex_resource" "example" {
   }
 
   set_block {
-    string = "set_block.one"
+    string = tfcoremock_simple_resource.example_dep_explicit.string
   }
 
   set_block {

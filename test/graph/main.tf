@@ -7,6 +7,30 @@ terraform {
   }
 }
 
+variable "var_a" {
+  type = string
+  default = "a"
+}
+
+locals {
+  things = tomap({
+    one = 1,
+    two = 2,
+  })
+}
+
+resource "tfcoremock_simple_resource" "example_loop_local" {
+  for_each = local.things
+  id      = "my-loop-resource-${each.key}"
+  number  = each.value
+}
+
+resource "tfcoremock_simple_resource" "example_loop_lookup" {
+  for_each = local.things
+  id      = "my-lookup-resource-${each.key}"
+  number  = tfcoremock_simple_resource.example_loop_local[each.key].number
+}
+
 resource "tfcoremock_simple_resource" "example" {
   id      = "my-simple-resource"
   bool    = true
@@ -15,6 +39,28 @@ resource "tfcoremock_simple_resource" "example" {
   float   = 0
   integer = 0
 }
+
+resource "tfcoremock_simple_resource" "example_count" {
+  count = 2
+
+  id      = "my-simple-resource-${count.index}"
+  bool    = tfcoremock_simple_resource.example.bool
+  number  = count.index
+  string  = "Hello, world!"
+  float   = 0
+  integer = 0
+}
+
+resource "tfcoremock_simple_resource" "example_for_each" {
+  for_each = { for i, res in tfcoremock_simple_resource.example_count : i => res }
+
+  id      = "my-simple-resource-foreach-${each.key}"
+  number  = each.value.number
+  string  = "Hello, world!"
+  float   = 0
+  integer = 0
+}
+
 
 resource "tfcoremock_simple_resource" "example_dep" {
   id      = "my-simple-resource-2"

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "id": {
+      "string": "my-loop-resource-one"
+    },
+    "number": {
+      "number": "1"
+    }
+  }
+}

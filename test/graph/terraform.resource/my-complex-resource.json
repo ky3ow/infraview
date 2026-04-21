@@ -32,7 +32,7 @@
               "set": []
             },
             "string": {
-              "string": "list_block.one"
+              "string": "Hello, world!"
             }
           }
         },
@@ -76,7 +76,7 @@
         "two": {
           "object": {
             "string": {
-              "string": "map.two"
+              "string": "Hello, world!"
             }
           }
         }
@@ -92,12 +92,19 @@
           }
         },
         "string": {
-          "string": "nested object"
+          "string": "Hello, world!"
         }
       }
     },
     "set": {
       "set": [
+        {
+          "object": {
+            "string": {
+              "string": "Hello, world!"
+            }
+          }
+        },
         {
           "object": {
             "string": {
@@ -118,7 +125,7 @@
               "set": []
             },
             "string": {
-              "string": "set_block.one"
+              "string": "Hello, world!"
             }
           }
         },

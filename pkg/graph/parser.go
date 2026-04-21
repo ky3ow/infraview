@@ -122,7 +122,7 @@ func generateEdges(p *tfjson.Plan) []Edge {
 }
 
 func processExpressions(resource string, expressions map[string]*tfjson.Expression) []Edge {
-	edges := make([]Edge, 0, 40)
+	edges := make([]Edge, 0, 10)
 
 	for _, e := range expressions {
 		if e.ConstantValue != tfjson.UnknownConstantValue {

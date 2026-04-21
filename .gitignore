@@ -34,3 +34,7 @@ go.work.sum
 .terraform
 .terraform.lock.hcl
 terraform.tfstate.backup
+
+*.pdf
+*.docx
+!ref.docx

@@ -20,6 +20,15 @@ Any sort of actions in Core, like applies or approvals, can be partially solved 
 
 Example: show the pending approval in UI, and on click redirect user to actual approval url(e.g. github actions)
 
+# Checklist
+
+- [ ] Treat special keywords while generating graph
+  - [ ] local.
+  - [ ] var.
+  - [ ] module.
+  - [ ] each.
+  - [ ] count.
+
 # Insiprations
 
 - [rover](https://github.com/im2nguyen/rover)

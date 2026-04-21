@@ -12,7 +12,6 @@
 ## Nice to have
 
 - User rules for custom grouping
-- IdP integration, RBAC
 - Addons(e.g. infracost annotations, probably just client side visual things from data supplied with plan?)
 
 ## Non-goals

@@ -20,14 +20,18 @@ Any sort of actions in Core, like applies or approvals, can be partially solved 
 
 Example: show the pending approval in UI, and on click redirect user to actual approval url(e.g. github actions)
 
+# Test coverage
+
+go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
+
 # Checklist
 
 - [ ] Treat special keywords while generating graph
   - [ ] local.
   - [ ] var. (edge)
   - [x] module. (edge + Parent thingy)
-  - [ ] each. (edge + parent?)
-  - [ ] count. (edge + parent?)
+  - [ ] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
+  - [ ] count. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
 - [ ] module outputs
 
 # Insiprations

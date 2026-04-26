@@ -24,10 +24,11 @@ Example: show the pending approval in UI, and on click redirect user to actual a
 
 - [ ] Treat special keywords while generating graph
   - [ ] local.
-  - [ ] var.
-  - [ ] module.
-  - [ ] each.
-  - [ ] count.
+  - [ ] var. (edge)
+  - [x] module. (edge + Parent thingy)
+  - [ ] each. (edge + parent?)
+  - [ ] count. (edge + parent?)
+- [ ] module outputs
 
 # Insiprations
 

@@ -2,8 +2,9 @@ package graph
 
 import (
 	"encoding/json"
-	tfjson "github.com/hashicorp/terraform-json"
 	"io"
+
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 type Graph struct {
@@ -15,6 +16,7 @@ type Node struct {
 	Name       string              `json:"name"`
 	Type       string              `json:"type"`
 	Mode       tfjson.ResourceMode `json:"mode"`
+	Address    string              `json:"address"`
 	Parameters []string            `json:"parameters"`
 	Changes    *tfjson.Change      `json:"changes"`
 }
@@ -24,65 +26,97 @@ type Edge struct {
 	To   string `json:"to"`
 }
 
-func generateNodes(p *tfjson.Plan) map[string]Node {
-	root := p.Config.RootModule
-	nodes := make(map[string]Node, 40)
+type ModuleConfig struct {
+	Name    string
+	Address string
+}
 
-	for _, r := range root.Resources {
-		parameters := make([]string, 0, len(r.Expressions))
-		for key, _ := range r.Expressions {
-			parameters = append(parameters, key)
+type NodeRegistry map[string]Node
+
+func (nr NodeRegistry) PopulateNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
+	var prefix string
+
+	if cfg.Address != "" {
+		// case for child modules
+		prefix = cfg.Address + "."
+		nr[cfg.Address] = Node{
+			Name:       cfg.Name,
+			Type:       "module",
+			Mode:       tfjson.ManagedResourceMode,
+			Address:    cfg.Address,
+			Parameters: processInputs(mc),
 		}
+	} else {
+		// this is a root module
+		prefix = ""
+	}
 
-		nodes[r.Address] = Node{
+	// process resources
+	for _, r := range mc.Module.Resources {
+		absoluteAddress := prefix + r.Address
+
+		nr[absoluteAddress] = Node{
 			Name:       r.Name,
 			Type:       r.Type,
 			Mode:       r.Mode,
-			Parameters: parameters,
+			Address:    absoluteAddress,
+			Parameters: processParams(r),
 		}
 	}
 
-	for name, m := range root.ModuleCalls {
-		parameters := make([]string, 0, len(m.Expressions))
-		for key, _ := range m.Expressions {
-			parameters = append(parameters, key)
-		}
-
-		moduleAddress := "module." + name
-
-		// TODO handle nested modules
-		nodes[moduleAddress] = Node{
-			Name:       name,
-			Type:       "module",
-			Mode:       tfjson.ManagedResourceMode,
-			Parameters: parameters,
-		}
-
-		for _, r := range m.Module.Resources {
-			parameters := make([]string, 0, len(r.Expressions))
-			for key, _ := range r.Expressions {
-				parameters = append(parameters, key)
-			}
-
-			nodes[moduleAddress+"."+r.Address] = Node{
-				Name:       r.Name,
-				Type:       r.Type,
-				Mode:       r.Mode,
-				Parameters: parameters,
-			}
-		}
+	// recurse into child modules
+	for name, m := range mc.Module.ModuleCalls {
+		nr.PopulateNodes(m, ModuleConfig{
+			Name:    name,
+			Address: prefix + "module." + name,
+		})
 	}
+	
+}
+
+// Process module(nodes):
+// process variables
+// process resources
+// process outputs
+// recurse(process module calls)
+
+// Process module(edges):
+// process resources(process expressions)
+// process module calls(process expressions)
+
+func processParams(r *tfjson.ConfigResource) []string {
+	parameters := make([]string, 0, len(r.Expressions))
+	for key, _ := range r.Expressions {
+		parameters = append(parameters, key)
+	}
+	return parameters
+}
+
+func processInputs(m *tfjson.ModuleCall) []string {
+	parameters := make([]string, 0, len(m.Expressions))
+	for key, _ := range m.Expressions {
+		parameters = append(parameters, key)
+	}
+	return parameters
+}
+
+func generateNodes(p *tfjson.Plan) map[string]Node {
+	root := &tfjson.ModuleCall{
+		Module: p.Config.RootModule,
+	}
+	registry := make(NodeRegistry, 100)
+	registry.PopulateNodes(root, ModuleConfig{})
 
 	for _, c := range p.ResourceChanges {
 		// TODO handle moving with PreviousAddress
-		if entry, ok := nodes[c.Address]; ok {
+		if entry, ok := registry[c.Address]; ok {
 			entry.Changes = c.Change
 
-			nodes[c.Address] = entry
+			registry[c.Address] = entry
 		}
 	}
 
-	return nodes
+	return registry
 }
 
 func generateEdges(p *tfjson.Plan) []Edge {
@@ -108,12 +142,12 @@ func generateEdges(p *tfjson.Plan) []Edge {
 		edges = append(edges, processExpressions(moduleAddress, m.Expressions)...)
 
 		for _, r := range m.Module.Resources {
-			resourceAddress := moduleAddress+"."+r.Address
+			resourceAddress := moduleAddress + "." + r.Address
 			edges = append(edges, processExpressions(resourceAddress, r.Expressions)...)
 
 			edges = append(edges, Edge{
 				From: resourceAddress,
-				To: moduleAddress,
+				To:   moduleAddress,
 			})
 		}
 	}

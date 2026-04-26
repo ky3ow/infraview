@@ -1,0 +1,117 @@
+{
+  "values": {
+    "id": {
+      "string": "61327af7-4e02-d18e-8337-9b440fcf9b40"
+    },
+    "list": {
+      "list": [
+        {
+          "object": {
+            "string": {
+              "string": "1"
+            }
+          }
+        },
+        {
+          "object": {
+            "string": {
+              "string": "2"
+            }
+          }
+        }
+      ]
+    },
+    "list_block": {
+      "list": [
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "one"
+            }
+          }
+        },
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "two"
+            }
+          }
+        }
+      ]
+    },
+    "map": {
+      "map": {
+        "one": {
+          "object": {
+            "string": {
+              "string": "map.one"
+            }
+          }
+        },
+        "two": {
+          "object": {
+            "string": {
+              "string": "map.two"
+            }
+          }
+        }
+      }
+    },
+    "object": {
+      "object": {
+        "object": {
+          "object": {
+            "string": {
+              "string": "nested nested object"
+            }
+          }
+        },
+        "string": {
+          "string": "nested object"
+        }
+      }
+    },
+    "set_block": {
+      "set": [
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "one"
+            }
+          }
+        },
+        {
+          "object": {
+            "list_block": {
+              "list": []
+            },
+            "set_block": {
+              "set": []
+            },
+            "string": {
+              "string": "two"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

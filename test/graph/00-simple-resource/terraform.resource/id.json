@@ -1,0 +1,19 @@
+{
+  "values": {
+    "bool": {
+      "boolean": true
+    },
+    "float": {
+      "number": "2"
+    },
+    "id": {
+      "string": "id"
+    },
+    "integer": {
+      "number": "3"
+    },
+    "string": {
+      "string": "string"
+    }
+  }
+}

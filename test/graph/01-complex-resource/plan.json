@@ -1,0 +1,479 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.8",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_complex_resource.simple",
+          "mode": "managed",
+          "type": "tfcoremock_complex_resource",
+          "name": "simple",
+          "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+          "schema_version": 0,
+          "values": {
+            "bool": null,
+            "float": null,
+            "integer": null,
+            "list": [
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "string": "1"
+              },
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "string": "2"
+              }
+            ],
+            "list_block": [
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "list_block": [],
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "set_block": [],
+                "string": "one"
+              },
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "list_block": [],
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "set_block": [],
+                "string": "two"
+              }
+            ],
+            "map": {
+              "one": {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "string": "map.one"
+              },
+              "two": {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "string": "map.two"
+              }
+            },
+            "number": null,
+            "object": {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "string": "nested nested object"
+              },
+              "set": null,
+              "string": "nested object"
+            },
+            "set": null,
+            "set_block": [
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "list_block": [],
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "set_block": [],
+                "string": "one"
+              },
+              {
+                "bool": null,
+                "float": null,
+                "integer": null,
+                "list": null,
+                "list_block": [],
+                "map": null,
+                "number": null,
+                "object": null,
+                "set": null,
+                "set_block": [],
+                "string": "two"
+              }
+            ],
+            "string": null
+          },
+          "sensitive_values": {
+            "list": [
+              {},
+              {}
+            ],
+            "list_block": [
+              {
+                "list_block": [],
+                "set_block": []
+              },
+              {
+                "list_block": [],
+                "set_block": []
+              }
+            ],
+            "map": {
+              "one": {},
+              "two": {}
+            },
+            "object": {
+              "object": {}
+            },
+            "set_block": [
+              {
+                "list_block": [],
+                "set_block": []
+              },
+              {
+                "list_block": [],
+                "set_block": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "tfcoremock_complex_resource.simple",
+      "mode": "managed",
+      "type": "tfcoremock_complex_resource",
+      "name": "simple",
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "bool": null,
+          "float": null,
+          "integer": null,
+          "list": [
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "string": "1"
+            },
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "string": "2"
+            }
+          ],
+          "list_block": [
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "list_block": [],
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "set_block": [],
+              "string": "one"
+            },
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "list_block": [],
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "set_block": [],
+              "string": "two"
+            }
+          ],
+          "map": {
+            "one": {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "string": "map.one"
+            },
+            "two": {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "string": "map.two"
+            }
+          },
+          "number": null,
+          "object": {
+            "bool": null,
+            "float": null,
+            "integer": null,
+            "list": null,
+            "map": null,
+            "number": null,
+            "object": {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "string": "nested nested object"
+            },
+            "set": null,
+            "string": "nested object"
+          },
+          "set": null,
+          "set_block": [
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "list_block": [],
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "set_block": [],
+              "string": "one"
+            },
+            {
+              "bool": null,
+              "float": null,
+              "integer": null,
+              "list": null,
+              "list_block": [],
+              "map": null,
+              "number": null,
+              "object": null,
+              "set": null,
+              "set_block": [],
+              "string": "two"
+            }
+          ],
+          "string": null
+        },
+        "after_unknown": {
+          "id": true,
+          "list": [
+            {},
+            {}
+          ],
+          "list_block": [
+            {
+              "list_block": [],
+              "set_block": []
+            },
+            {
+              "list_block": [],
+              "set_block": []
+            }
+          ],
+          "map": {
+            "one": {},
+            "two": {}
+          },
+          "object": {
+            "object": {}
+          },
+          "set_block": [
+            {
+              "list_block": [],
+              "set_block": []
+            },
+            {
+              "list_block": [],
+              "set_block": []
+            }
+          ]
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "list": [
+            {},
+            {}
+          ],
+          "list_block": [
+            {
+              "list_block": [],
+              "set_block": []
+            },
+            {
+              "list_block": [],
+              "set_block": []
+            }
+          ],
+          "map": {
+            "one": {},
+            "two": {}
+          },
+          "object": {
+            "object": {}
+          },
+          "set_block": [
+            {
+              "list_block": [],
+              "set_block": []
+            },
+            {
+              "list_block": [],
+              "set_block": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "tfcoremock": {
+        "name": "tfcoremock",
+        "full_name": "registry.terraform.io/hashicorp/tfcoremock",
+        "version_constraint": "0.1.2"
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_complex_resource.simple",
+          "mode": "managed",
+          "type": "tfcoremock_complex_resource",
+          "name": "simple",
+          "provider_config_key": "tfcoremock",
+          "expressions": {
+            "list": {
+              "constant_value": [
+                {
+                  "string": "1"
+                },
+                {
+                  "string": "2"
+                }
+              ]
+            },
+            "list_block": [
+              {
+                "string": {
+                  "constant_value": "one"
+                }
+              },
+              {
+                "string": {
+                  "constant_value": "two"
+                }
+              }
+            ],
+            "map": {
+              "constant_value": {
+                "one": {
+                  "string": "map.one"
+                },
+                "two": {
+                  "string": "map.two"
+                }
+              }
+            },
+            "object": {
+              "constant_value": {
+                "object": {
+                  "string": "nested nested object"
+                },
+                "string": "nested object"
+              }
+            },
+            "set_block": [
+              {
+                "string": {
+                  "constant_value": "one"
+                }
+              },
+              {
+                "string": {
+                  "constant_value": "two"
+                }
+              }
+            ]
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  },
+  "timestamp": "2026-04-26T22:46:43Z",
+  "applyable": true,
+  "complete": true,
+  "errored": false
+}

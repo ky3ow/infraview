@@ -75,7 +75,7 @@ func TestSimpleResource(t *testing.T) {
 }
 
 func TestComplexResource(t *testing.T) {
-	planName := "data/01-complex-resource.json"
+	planName := "01-complex-resource/plan.json"
 	file, err := os.Open(planName)
 
 	if err != nil {
@@ -102,7 +102,7 @@ func TestComplexResource(t *testing.T) {
 }
 
 func TestGreenYellowRed(t *testing.T) {
-	planName := "data/02-simple-create-update-delete.json"
+	planName := "02-simple-create-update-delete/plan.json"
 	file, err := os.Open(planName)
 
 	if err != nil {
@@ -136,6 +136,7 @@ func TestGreenYellowRed(t *testing.T) {
 		t.Errorf("yellow should update")
 	}
 
+
 	red, ok := got.Nodes["tfcoremock_simple_resource.red"]
 
 	if !ok {
@@ -143,6 +144,21 @@ func TestGreenYellowRed(t *testing.T) {
 	}
 
 	if red.Changes == nil || red.Changes.Actions[0] != "delete" {
-		t.Errorf("red should update")
+		t.Errorf("red should delete")
 	}
+}
+
+func TestSimpleDependencies(t *testing.T) {
+	// planName := "03-simple-dependencies/plan.json"
+	// file, err := os.Open(planName)
+
+	// if err != nil {
+	// 	t.Errorf("No file: %s", planName)
+	// }
+
+	// got, err := graph.New(file)
+
+	// if err != nil {
+	// 	t.Errorf("%v", err)
+	// }
 }

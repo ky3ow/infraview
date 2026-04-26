@@ -35,6 +35,10 @@ type ModuleConfig struct {
 
 func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	// TODO variables, outputs as nodes, especially for child modules
+	// TODO count, for_each(parent nodes from config, individual in changes)
+	// TODO clean references(dots should be an even number to be not attributes?)
+	// TODO check secrets
+	// TODO dynamic
 	var prefix string
 
 	if cfg.Address != "" {
@@ -102,10 +106,6 @@ func (g *Graph) ChangesFrom(p *tfjson.Plan) {
 	}
 }
 
-// Process module(edges):
-// process resources(process expressions)
-// process module calls(process expressions)
-
 func processParams(r *tfjson.ConfigResource) []string {
 	parameters := make([]string, 0, len(r.Expressions))
 	for key, _ := range r.Expressions {
@@ -123,7 +123,6 @@ func processInputs(m *tfjson.ModuleCall) []string {
 }
 
 func processExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) []Edge {
-	// TODO prefix needed
 	edges := make([]Edge, 0, 10)
 
 	for _, e := range expressions {
@@ -159,13 +158,13 @@ func New(r io.Reader) (*Graph, error) {
 		Module: plan.Config.RootModule,
 	}
 
-	var g = Graph{
+	var graph = Graph{
 		Nodes: make(map[string]Node, 100),
 		Edges: make([]Edge, 0, 100),
 	}
 
-	g.NodesFrom(root, ModuleConfig{})
-	g.ChangesFrom(&plan)
+	graph.NodesFrom(root, ModuleConfig{})
+	graph.ChangesFrom(&plan)
 
-	return &g, nil
+	return &graph, nil
 }

@@ -67,10 +67,11 @@ func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		}
 
 		// implicit deps
-		g.Edges = append(g.Edges, processExpressions(absoluteAddress, r.Expressions)...)
+		g.Edges = append(g.Edges, processExpressions(absoluteAddress, prefix, r.Expressions)...)
 
 		// explicit deps
 		for _, dep := range r.DependsOn {
+
 			g.Edges = append(g.Edges, Edge{
 				From: prefix + dep,
 				To:   absoluteAddress,
@@ -81,8 +82,6 @@ func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	// recurse into child modules
 	for name, m := range mc.Module.ModuleCalls {
 		moduleAbsoluteAddress := prefix + "module." + name
-
-		// g.Edges = append(g.Edges, processExpressions(moduleAbsoluteAddress, m.Expressions)...)
 
 		g.NodesFrom(m, ModuleConfig{
 			Name:    name,
@@ -123,7 +122,8 @@ func processInputs(m *tfjson.ModuleCall) []string {
 	return parameters
 }
 
-func processExpressions(resource string, expressions map[string]*tfjson.Expression) []Edge {
+func processExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) []Edge {
+	// TODO prefix needed
 	edges := make([]Edge, 0, 10)
 
 	for _, e := range expressions {
@@ -134,13 +134,13 @@ func processExpressions(resource string, expressions map[string]*tfjson.Expressi
 
 		for _, dep := range e.References {
 			edges = append(edges, Edge{
-				From: dep,
+				From: prefix + dep,
 				To:   resource,
 			})
 		}
 
 		for _, nested := range e.NestedBlocks {
-			edges = append(edges, processExpressions(resource, nested)...)
+			edges = append(edges, processExpressions(resource, prefix, nested)...)
 		}
 	}
 
@@ -161,10 +161,11 @@ func New(r io.Reader) (*Graph, error) {
 
 	var g = Graph{
 		Nodes: make(map[string]Node, 100),
-		Edges: make([]Edge, 100),
+		Edges: make([]Edge, 0, 100),
 	}
 
 	g.NodesFrom(root, ModuleConfig{})
 	g.ChangesFrom(&plan)
+
 	return &g, nil
 }

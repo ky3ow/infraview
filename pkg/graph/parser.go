@@ -2,7 +2,9 @@ package graph
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
 )
@@ -97,13 +99,60 @@ func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 
 func (g *Graph) ChangesFrom(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
-		// TODO handle moving with PreviousAddress
-		if entry, ok := g.Nodes[c.Address]; ok {
-			entry.Changes = c.Change
-
-			g.Nodes[c.Address] = entry
+		entry, ok := g.Nodes[c.Address]
+		// TODO infer edges from past when deleting
+		if !ok && c.Change.Actions.Delete() {
+			entry = guessDeletedNode(c)
 		}
+
+		// TODO handle moving with PreviousAddress
+		entry.Changes = c.Change
+		g.Nodes[c.Address] = entry
 	}
+}
+
+func guessDeletedNode(c *tfjson.ResourceChange) Node {
+	// TODO test for modules
+	fromChange := Node{
+		Name:    c.Name,
+		Type:    c.Type,
+		Mode:    c.Mode,
+		Address: c.Address,
+	}
+
+	changes, ok := c.Change.Before.(map[string]any)
+	if !ok {
+		panic("I am bad person")
+	}
+
+	parameters := make([]string, 0, len(changes))
+	for key, _ := range changes {
+		parameters = append(parameters, key)
+	}
+
+	fromChange.Parameters = parameters
+
+	parent, err := parentFromString(fromChange.Address, fromChange.Type, fromChange.Name)
+	if err != nil {
+		panic("Deleted node suffix is messed up completely")
+	}
+
+	fromChange.Parent = parent
+
+	return fromChange
+}
+
+func parentFromString(addr, t, name string) (string, error) {
+	suffix := t + "." + name
+
+	idx := strings.LastIndex(addr, suffix)
+	if idx == -1 {
+		return "", fmt.Errorf("Could not get parent from address: %s, type,name: %s,%s", addr, t, name)
+	}
+
+	parent := addr[:idx]
+
+	return strings.TrimSuffix(parent, "."), nil
 }
 
 func processParams(r *tfjson.ConfigResource) []string {

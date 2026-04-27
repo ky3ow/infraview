@@ -4,28 +4,12 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/hashicorp/terraform-json"
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/ky3ow/infraview/pkg/graph"
 )
 
-const (
-	SIMPLE = "tfcoremock_simple_resource"
-)
-
 func TestSimpleResource(t *testing.T) {
-	planName := "data/00-simple-resource.json"
-	file, err := os.Open(planName)
-
-	if err != nil {
-		t.Errorf("No file: %s", planName)
-	}
-
-	got, err := graph.New(file)
-
-	if err != nil {
-		t.Errorf("%v", err)
-	}
+	got := setup(t, "data/00-simple-resource.json")
 
 	expectedNodes := 1
 	if len(got.Nodes) != expectedNodes {
@@ -53,12 +37,12 @@ func TestSimpleResource(t *testing.T) {
 	}
 
 	expectedParams := map[string]any{
-		"bool": true,
-		"float": 2.0,
-		"id": "id",
+		"bool":    true,
+		"float":   2.0,
+		"id":      "id",
 		"integer": 3.0, // integers are not integers in terraform
-		"number": nil,
-		"string": "string",
+		"number":  nil,
+		"string":  "string",
 	}
 
 	for _, param := range resource.Parameters {
@@ -75,18 +59,7 @@ func TestSimpleResource(t *testing.T) {
 }
 
 func TestComplexResource(t *testing.T) {
-	planName := "01-complex-resource/plan.json"
-	file, err := os.Open(planName)
-
-	if err != nil {
-		t.Errorf("No file: %s", planName)
-	}
-
-	got, err := graph.New(file)
-
-	if err != nil {
-		t.Errorf("%v", err)
-	}
+	got := setup(t, "01-complex-resource/plan.json")
 
 	expectedNodes := 1
 	if len(got.Nodes) != expectedNodes {
@@ -102,18 +75,7 @@ func TestComplexResource(t *testing.T) {
 }
 
 func TestGreenYellowRed(t *testing.T) {
-	planName := "02-simple-create-update-delete/plan.json"
-	file, err := os.Open(planName)
-
-	if err != nil {
-		t.Errorf("No file: %s", planName)
-	}
-
-	got, err := graph.New(file)
-
-	if err != nil {
-		t.Errorf("%v", err)
-	}
+	got := setup(t, "02-simple-create-update-delete/plan.json")
 
 	// check green yellow and red exist and represent proper action to apply
 	green, ok := got.Nodes["tfcoremock_simple_resource.green"]
@@ -136,7 +98,6 @@ func TestGreenYellowRed(t *testing.T) {
 		t.Errorf("yellow should update")
 	}
 
-
 	red, ok := got.Nodes["tfcoremock_simple_resource.red"]
 
 	if !ok {
@@ -149,21 +110,59 @@ func TestGreenYellowRed(t *testing.T) {
 }
 
 func TestSimpleDependencies(t *testing.T) {
-	// planName := "03-simple-dependencies/plan.json"
-	// file, err := os.Open(planName)
+	got := setup(t, "03-simple-dependencies/plan.json")
 
-	// if err != nil {
-	// 	t.Errorf("No file: %s", planName)
-	// }
+	expectedEdges := []graph.Edge{
+		{From: "tfcoremock_simple_resource.original", To: "tfcoremock_simple_resource.implicit"},
+		{From: "tfcoremock_simple_resource.original.float", To: "tfcoremock_simple_resource.implicit"},
+		{From: "tfcoremock_simple_resource.original", To: "tfcoremock_simple_resource.explicit"},
+	}
 
-	// got, err := graph.New(file)
-
-	// if err != nil {
-	// 	t.Errorf("%v", err)
-	// }
+	verifyEdges(t, expectedEdges, got.Edges)
 }
 
 func TestNestedRed(t *testing.T) {
 	// assume nested deletion is broken until tested
 	t.Fatal()
+}
+
+func setup(t *testing.T, planPath string) *graph.Graph {
+	t.Helper()
+	file, err := os.Open(planPath)
+
+	if err != nil {
+		t.Errorf("No file: %s", planPath)
+	}
+
+	got, err := graph.New(file)
+
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	
+	return got
+}
+
+func verifyEdges(t *testing.T, expected, actual []graph.Edge) {
+	t.Helper()
+
+	if len(actual) != len(expected) {
+		t.Errorf("Expected and actual do not match length: %v ; %v", expected, actual)
+	}
+
+	counts := make(map[graph.Edge]int)
+
+	for _, v := range actual {
+		counts[v]++
+	}
+
+	for _, v := range expected {
+		counts[v]--
+	}
+
+	for edge, count := range counts {
+		if count != 0 {
+			t.Errorf("Unexpected edge: %v", edge)
+		}
+	}
 }

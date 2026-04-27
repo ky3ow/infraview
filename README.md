@@ -33,6 +33,9 @@ go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
   - [ ] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
   - [ ] count. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
 - [ ] module outputs
+- [ ] deletion
+  - [x] Infer info what present in resource changes
+  - [ ] Infer previous info from DB
 
 # Insiprations
 

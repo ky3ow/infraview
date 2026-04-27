@@ -162,3 +162,8 @@ func TestSimpleDependencies(t *testing.T) {
 	// 	t.Errorf("%v", err)
 	// }
 }
+
+func TestNestedRed(t *testing.T) {
+	// assume nested deletion is broken until tested
+	t.Fatal()
+}

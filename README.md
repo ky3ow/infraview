@@ -242,6 +242,7 @@ go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 
 Has `root_module` that contains array of resources
 Has `module_calls`, a map of "name -> metadata", contains source, expressions(call parameters), module field(map of outputs, array of resources)
+Has `resource_drift` which has resource changes that also occured because of DRIFTS
 
 #### Resource
 

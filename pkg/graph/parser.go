@@ -12,7 +12,7 @@ import (
 type Graph struct {
 	Nodes map[string]Node `json:"nodes"`
 	Edges []Edge          `json:"edges"`
-	seen  map[Edge]struct{}
+	seen  map[edgeKey]Edge
 }
 
 type Node struct {
@@ -26,8 +26,14 @@ type Node struct {
 }
 
 type Edge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From               string   `json:"from"`
+	To                 string   `json:"to"`
+	RelevantAttributes []string `json:"attributes,omitempty"`
+}
+
+type edgeKey struct {
+	from string
+	to   string
 }
 
 type ModuleConfig struct {
@@ -37,11 +43,30 @@ type ModuleConfig struct {
 }
 
 func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
-	// TODO outputs as nodes
+	// TODO make this Two-pass, Nodes and only then Edges, became too convoluted
+	// TODO edge attributes to have granular dependency shown
 	// TODO count, for_each(parent nodes from config, individual in changes)
-	// TODO clean references(dots should be an even number to be not attributes?)
 	// TODO check secrets
 	// TODO dynamic
+
+	// TODO clean references(dots should be an odd number to be not attributes?)
+	// vars: odd
+	// var.abc 1
+	// module.something.var.abc 3
+	// module.something.module.another.var.abc 5
+
+	// outputs: even
+	// module.something.its_output 2
+
+	// regular resources: odd
+	// some_resource 1
+	// module.something.resource.name 3
+	// module.something.module.another.resource.name 5
+
+	// resource parameters: even
+	// module.something.module.another.resource.name.float 6
+	// some_resource.name.integer 2
+	// module.something.resource.name.integer 4
 	var prefix string
 
 	if cfg.Address != "" {
@@ -86,8 +111,6 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 
 	// process module deps
-	g.addEdgesForModuleVars(cfg.Address, cfg.Parent, mc.Expressions)
-
 	for varname, _ := range mc.Module.Variables {
 		absoluteAddress := prefix + "var." + varname
 		g.Nodes[absoluteAddress] = Node{
@@ -99,6 +122,9 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			Parameters: []string{},
 		}
 	}
+
+	g.addEdgesForModuleVars(cfg.Address, cfg.Parent, mc.Expressions)
+	g.addModuleOutputs(cfg.Address, mc.Module.Outputs)
 
 	// recurse into child modules
 	for name, m := range mc.Module.ModuleCalls {
@@ -128,8 +154,9 @@ func (g *Graph) ChangesFrom(p *tfjson.Plan) {
 
 func (g *Graph) AddEdges(edges ...Edge) {
 	for _, e := range edges {
-		if _, ok := g.seen[e]; !ok {
-			g.seen[e] = struct{}{}
+		key := edgeKey{from: e.From, to: e.To}
+		if _, ok := g.seen[key]; !ok {
+			g.seen[key] = e
 			g.Edges = append(g.Edges, e)
 		}
 	}
@@ -156,6 +183,37 @@ func (g *Graph) addEdgesForResourceExpressions(resource string, prefix string, e
 			To:   resource,
 		})
 	})
+}
+
+func (g *Graph) addModuleOutputs(module string, outputs map[string]*tfjson.ConfigOutput) {
+	prefix := module
+	if module != "" {
+		prefix += "."
+	}
+
+	for name, o := range outputs {
+
+		fullname := prefix + name
+
+		g.Nodes[fullname] = Node{
+			Name:       name,
+			Type:       "output",
+			Mode:       tfjson.ManagedResourceMode,
+			Address:    fullname,
+			Parent:     module,
+			Parameters: []string{},
+		}
+
+		expressions := make(map[string]*tfjson.Expression)
+		expressions[name] = o.Expression
+
+		walkExpressions(expressions, func(_, from string) {
+			g.AddEdges(Edge{
+				From: prefix + from,
+				To:   fullname,
+			})
+		})
+	}
 }
 
 func walkExpressions(expressions map[string]*tfjson.Expression, handleReference func(key, ref string)) {
@@ -249,7 +307,7 @@ func New(r io.Reader) (*Graph, error) {
 	var graph = Graph{
 		Nodes: make(map[string]Node, 100),
 		Edges: make([]Edge, 0, 100),
-		seen:  make(map[Edge]struct{}, 100),
+		seen:  make(map[edgeKey]Edge, 100),
 	}
 
 	graph.WalkModule(root, ModuleConfig{})

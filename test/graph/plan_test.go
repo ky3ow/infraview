@@ -112,13 +112,13 @@ func TestGreenYellowRed(t *testing.T) {
 func TestSimpleDependencies(t *testing.T) {
 	got := setup(t, "03-simple-dependencies/plan.json")
 
-	expectedEdges := []graph.Edge{
-		{From: "tfcoremock_simple_resource.original", To: "tfcoremock_simple_resource.implicit"},
-		{From: "tfcoremock_simple_resource.original.float", To: "tfcoremock_simple_resource.implicit"},
-		{From: "tfcoremock_simple_resource.original", To: "tfcoremock_simple_resource.explicit"},
+	expectedEdges, gotEdges := 3,len(got.Edges)
+	if gotEdges != expectedEdges {
+		t.Errorf("Expected %v edges, got %v", expectedEdges, gotEdges)
 	}
-
-	verifyEdges(t, expectedEdges, got.Edges)
+	expectEdge(t, got, "tfcoremock_simple_resource.original", "tfcoremock_simple_resource.implicit", "Edge")
+	expectEdge(t, got, "tfcoremock_simple_resource.original.float", "tfcoremock_simple_resource.implicit", "Edge")
+	expectEdge(t, got, "tfcoremock_simple_resource.original", "tfcoremock_simple_resource.explicit", "Edge")
 }
 
 func TestSimpleVars(t *testing.T) {
@@ -163,6 +163,33 @@ func TestModuleVars(t *testing.T) {
 	}
 }
 
+func TestSimpleOutputs(t *testing.T) {
+	got := setup(t, "06-simple-outputs/plan.json")
+
+	expectNode(t, got, "simple_int", "simple_int", "simple output")
+	expectEdge(t, got, "tfcoremock_simple_resource.simple", "simple_int", "simple output")
+	expectEdge(t, got, "tfcoremock_simple_resource.simple.integer", "simple_int", "simple output")
+}
+
+func TestModuleOutputs(t *testing.T) {
+	got := setup(t, "07-module-outputs/plan.json")
+
+	expectNode(t, got, "outer", "outer", "simple output")
+	expectEdge(t, got, "module.sample.two_passthrough_output", "outer", "simple output")
+	expectEdge(t, got, "module.sample", "outer", "simple output")
+
+	expectNode(t, got, "one_output", "module.sample.one_output", "module output")
+	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple.id", "module.sample.one_output", "module output")
+	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.one_output", "module output")
+
+	expectNode(t, got, "two_passthrough_output", "module.sample.two_passthrough_output", "module passthrough output")
+	expectEdge(t, got, "module.sample.module.sample_child.two_output", "module.sample.two_passthrough_output", "module passthrough output")
+	expectEdge(t, got, "module.sample.module.sample_child", "module.sample.two_passthrough_output", "module passthrough output")
+
+	expectNode(t, got, "sample_child", "module.sample.module.sample_child", "child module")
+	expectEdge(t, got, "module.sample.module.sample_child.tfcoremock_simple_resource.simple", "module.sample.module.sample_child.two_output", "module passthrough output")
+}
+
 func TestComplexVars(t *testing.T) {
 	got := setup(t, "08-complex-vars/plan.json")
 
@@ -171,8 +198,6 @@ func TestComplexVars(t *testing.T) {
 	expectEdge(t, got, "tfcoremock_simple_resource.name", "module.sample.var.var2_module", "root resource to module var")
 
 	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.module.sample_child.var.var1_nested", "module resource to nested module var")
-
-	t.Errorf("%v", got.Edges)
 }
 
 func TestNestedRed(t *testing.T) {
@@ -195,30 +220,6 @@ func setup(t *testing.T, planPath string) *graph.Graph {
 	}
 
 	return got
-}
-
-func verifyEdges(t *testing.T, expected, actual []graph.Edge) {
-	t.Helper()
-
-	if len(actual) != len(expected) {
-		t.Errorf("Expected and actual do not match length: %v ; %v", expected, actual)
-	}
-
-	counts := make(map[graph.Edge]int)
-
-	for _, v := range actual {
-		counts[v]++
-	}
-
-	for _, v := range expected {
-		counts[v]--
-	}
-
-	for edge, count := range counts {
-		if count != 0 {
-			t.Errorf("Unexpected edge: %v", edge)
-		}
-	}
 }
 
 func expectNode(t *testing.T, g *graph.Graph, name, address, context string) {

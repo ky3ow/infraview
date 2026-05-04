@@ -37,7 +37,7 @@ type ModuleConfig struct {
 }
 
 func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
-	// TODO variables, outputs as nodes, especially for child modules
+	// TODO outputs as nodes
 	// TODO count, for_each(parent nodes from config, individual in changes)
 	// TODO clean references(dots should be an even number to be not attributes?)
 	// TODO check secrets
@@ -74,7 +74,7 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		}
 
 		// implicit resource deps
-		g.addEdgesForExpressions(absoluteAddress, prefix, r.Expressions)
+		g.addEdgesForResourceExpressions(absoluteAddress, prefix, r.Expressions)
 
 		// explicit resource deps
 		for _, dep := range r.DependsOn {
@@ -135,48 +135,41 @@ func (g *Graph) AddEdges(edges ...Edge) {
 	}
 }
 
-func (g *Graph) addEdgesForExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) {
-	for _, e := range expressions {
-		if e.ConstantValue != tfjson.UnknownConstantValue {
-			// this is just static value
-			continue
-		}
-
-		for _, ref := range e.References {
-			g.AddEdges(Edge{
-				From: prefix + ref,
-				To:   resource,
-			})
-		}
-
-		for _, nested := range e.NestedBlocks {
-			g.addEdgesForExpressions(resource, prefix, nested)
-		}
-	}
-}
-
 func (g *Graph) addEdgesForModuleVars(module string, parent string, expressions map[string]*tfjson.Expression) {
 	var prefix string
 	if parent != "" {
 		prefix = parent + "."
 	}
-	for input_varname, e := range expressions {
+
+	walkExpressions(expressions, func(to, from string) {
+		g.AddEdges(Edge{
+			From: prefix + from,
+			To:   module + ".var." + to,
+		})
+	})
+}
+
+func (g *Graph) addEdgesForResourceExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) {
+	walkExpressions(expressions, func(_, from string) {
+		g.AddEdges(Edge{
+			From: prefix + from,
+			To:   resource,
+		})
+	})
+}
+
+func walkExpressions(expressions map[string]*tfjson.Expression, handleReference func(key, ref string)) {
+	for key, e := range expressions {
 		if e.ConstantValue != tfjson.UnknownConstantValue {
 			// this is just static value
 			continue
 		}
-
-		absolute_varname := module + ".var." + input_varname
-
 		for _, ref := range e.References {
-			g.AddEdges(Edge{
-				From: prefix + ref,
-				To:   absolute_varname,
-			})
+			handleReference(key, ref)
 		}
 
 		for _, nested := range e.NestedBlocks {
-			g.addEdgesForModuleVars(module, parent, nested)
+			walkExpressions(nested, handleReference)
 		}
 	}
 }
@@ -256,7 +249,7 @@ func New(r io.Reader) (*Graph, error) {
 	var graph = Graph{
 		Nodes: make(map[string]Node, 100),
 		Edges: make([]Edge, 0, 100),
-		seen: make(map[Edge]struct{}, 100),
+		seen:  make(map[Edge]struct{}, 100),
 	}
 
 	graph.WalkModule(root, ModuleConfig{})

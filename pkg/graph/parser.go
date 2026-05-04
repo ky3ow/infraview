@@ -12,6 +12,7 @@ import (
 type Graph struct {
 	Nodes map[string]Node `json:"nodes"`
 	Edges []Edge          `json:"edges"`
+	seen  map[Edge]struct{}
 }
 
 type Node struct {
@@ -35,7 +36,7 @@ type ModuleConfig struct {
 	Parent  string
 }
 
-func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
+func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	// TODO variables, outputs as nodes, especially for child modules
 	// TODO count, for_each(parent nodes from config, individual in changes)
 	// TODO clean references(dots should be an even number to be not attributes?)
@@ -72,16 +73,30 @@ func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			Parameters: processParams(r),
 		}
 
-		// implicit deps
-		g.Edges = append(g.Edges, processExpressions(absoluteAddress, prefix, r.Expressions)...)
+		// implicit resource deps
+		g.addEdgesForExpressions(absoluteAddress, prefix, r.Expressions)
 
-		// explicit deps
+		// explicit resource deps
 		for _, dep := range r.DependsOn {
-
-			g.Edges = append(g.Edges, Edge{
+			g.AddEdges(Edge{
 				From: prefix + dep,
 				To:   absoluteAddress,
 			})
+		}
+	}
+
+	// process module deps
+	g.addEdgesForModuleVars(cfg.Address, cfg.Parent, mc.Expressions)
+
+	for varname, _ := range mc.Module.Variables {
+		absoluteAddress := prefix + "var." + varname
+		g.Nodes[absoluteAddress] = Node{
+			Name:       varname,
+			Type:       "variable",
+			Mode:       tfjson.ManagedResourceMode,
+			Address:    absoluteAddress,
+			Parent:     cfg.Address,
+			Parameters: []string{},
 		}
 	}
 
@@ -89,7 +104,7 @@ func (g *Graph) NodesFrom(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	for name, m := range mc.Module.ModuleCalls {
 		moduleAbsoluteAddress := prefix + "module." + name
 
-		g.NodesFrom(m, ModuleConfig{
+		g.WalkModule(m, ModuleConfig{
 			Name:    name,
 			Address: moduleAbsoluteAddress,
 			Parent:  cfg.Address,
@@ -108,6 +123,61 @@ func (g *Graph) ChangesFrom(p *tfjson.Plan) {
 		// TODO handle moving with PreviousAddress
 		entry.Changes = c.Change
 		g.Nodes[c.Address] = entry
+	}
+}
+
+func (g *Graph) AddEdges(edges ...Edge) {
+	for _, e := range edges {
+		if _, ok := g.seen[e]; !ok {
+			g.seen[e] = struct{}{}
+			g.Edges = append(g.Edges, e)
+		}
+	}
+}
+
+func (g *Graph) addEdgesForExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) {
+	for _, e := range expressions {
+		if e.ConstantValue != tfjson.UnknownConstantValue {
+			// this is just static value
+			continue
+		}
+
+		for _, ref := range e.References {
+			g.AddEdges(Edge{
+				From: prefix + ref,
+				To:   resource,
+			})
+		}
+
+		for _, nested := range e.NestedBlocks {
+			g.addEdgesForExpressions(resource, prefix, nested)
+		}
+	}
+}
+
+func (g *Graph) addEdgesForModuleVars(module string, parent string, expressions map[string]*tfjson.Expression) {
+	var prefix string
+	if parent != "" {
+		prefix = parent + "."
+	}
+	for input_varname, e := range expressions {
+		if e.ConstantValue != tfjson.UnknownConstantValue {
+			// this is just static value
+			continue
+		}
+
+		absolute_varname := module + ".var." + input_varname
+
+		for _, ref := range e.References {
+			g.AddEdges(Edge{
+				From: prefix + ref,
+				To:   absolute_varname,
+			})
+		}
+
+		for _, nested := range e.NestedBlocks {
+			g.addEdgesForModuleVars(module, parent, nested)
+		}
 	}
 }
 
@@ -171,30 +241,6 @@ func processInputs(m *tfjson.ModuleCall) []string {
 	return parameters
 }
 
-func processExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) []Edge {
-	edges := make([]Edge, 0, 10)
-
-	for _, e := range expressions {
-		if e.ConstantValue != tfjson.UnknownConstantValue {
-			// this is just static value
-			continue
-		}
-
-		for _, dep := range e.References {
-			edges = append(edges, Edge{
-				From: prefix + dep,
-				To:   resource,
-			})
-		}
-
-		for _, nested := range e.NestedBlocks {
-			edges = append(edges, processExpressions(resource, prefix, nested)...)
-		}
-	}
-
-	return edges
-}
-
 func New(r io.Reader) (*Graph, error) {
 	var plan tfjson.Plan
 
@@ -210,9 +256,10 @@ func New(r io.Reader) (*Graph, error) {
 	var graph = Graph{
 		Nodes: make(map[string]Node, 100),
 		Edges: make([]Edge, 0, 100),
+		seen: make(map[Edge]struct{}, 100),
 	}
 
-	graph.NodesFrom(root, ModuleConfig{})
+	graph.WalkModule(root, ModuleConfig{})
 	graph.ChangesFrom(&plan)
 
 	return &graph, nil

@@ -9,7 +9,7 @@ import (
 )
 
 func TestSimpleResource(t *testing.T) {
-	got := setup(t, "data/00-simple-resource.json")
+	got := setup(t, "00-simple-resource/plan.json")
 
 	expectedNodes := 1
 	if len(got.Nodes) != expectedNodes {
@@ -121,9 +121,51 @@ func TestSimpleDependencies(t *testing.T) {
 	verifyEdges(t, expectedEdges, got.Edges)
 }
 
+func TestSimpleVars(t *testing.T) {
+	got := setup(t, "04-simple-vars/plan.json")
+
+	expectNode(t, got, "var1", "var.var1", "Root var with default")
+	expectNode(t, got, "var2", "var.var2", "Root var without default")
+
+	if len(got.Edges) != 2 {
+		t.Errorf("Unexpected edges, want 2, got: %v", got.Edges)
+	}
+
+	expectEdge(t, got, "var.var1", "tfcoremock_simple_resource.simple", "Edge to root var")
+	expectEdge(t, got, "var.var2", "tfcoremock_simple_resource.simple", "Edge to root var")
+}
+
+func TestModuleVars(t *testing.T) {
+	got := setup(t, "05-module-vars/plan.json")
+
+	expectedEdges := 6
+	if len(got.Edges) != expectedEdges {
+		t.Errorf("Expected %d edges, got %v", expectedEdges, got.Edges)
+	}
+
+	expectNode(t, got, "var1_module", "module.sample.var.var1_module", "1st level Module var with default")
+	expectNode(t, got, "var2_module", "module.sample.var.var2_module", "1st level Module var without default")
+
+	expectEdge(t, got, "module.sample.var.var1_module", "module.sample.tfcoremock_simple_resource.simple", "1st level Module var edge inside")
+	expectEdge(t, got, "module.sample.var.var2_module", "module.sample.tfcoremock_simple_resource.simple", "1st level Module var edge inside")
+
+	expectEdge(t, got, "var.var1_root", "module.sample.var.var1_module", "1st level Module var edge outside")
+	expectEdge(t, got, "var.var2_root", "module.sample.var.var2_module", "1st level Module var edge outside")
+
+	expectNode(t, got, "var1_nested", "module.sample.module.sample_child.var.var1_nested", "2nd level nested module var")
+
+	expectEdge(t, got, "module.sample.module.sample_child.var.var1_nested", "module.sample.module.sample_child.tfcoremock_simple_resource.simple", "2nd level nested Module var edge inside")
+	expectEdge(t, got, "module.sample.var.var1_module", "module.sample.module.sample_child.var.var1_nested", "2nd level nested Module var edge outside")
+
+	if t.Failed() {
+		t.Errorf("Nodes: %v", got.Nodes)
+		t.Errorf("Edges: %v", got.Edges)
+	}
+}
+
 func TestNestedRed(t *testing.T) {
 	// assume nested deletion is broken until tested
-	t.Fatal()
+	// t.Fatal()
 }
 
 func setup(t *testing.T, planPath string) *graph.Graph {
@@ -139,7 +181,7 @@ func setup(t *testing.T, planPath string) *graph.Graph {
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	
+
 	return got
 }
 
@@ -164,5 +206,40 @@ func verifyEdges(t *testing.T, expected, actual []graph.Edge) {
 		if count != 0 {
 			t.Errorf("Unexpected edge: %v", edge)
 		}
+	}
+}
+
+func expectNode(t *testing.T, g *graph.Graph, name, address, context string) {
+	t.Helper()
+	node, ok := g.Nodes[address]
+
+	if !ok {
+		t.Errorf("[%v]:: %v not found", context, name)
+	}
+
+	if node.Name != name {
+		t.Errorf("[%v]:: parsing does not yield proper name, got '%v', expected '%v'", context, node.Name, name)
+	}
+
+	if node.Address != address {
+		t.Errorf("[%v]:: parsing does not yield proper address, got '%v', expected '%v'", context, node.Address, address)
+	}
+}
+
+func expectEdge(t *testing.T, g *graph.Graph, a, b, context string) {
+	t.Helper()
+	edges := g.Edges
+
+	found := false
+	for _, edge := range edges {
+		// if (edge.From == a && edge.To == b) || (edge.From == b && edge.To == a) {
+		if edge.From == a && edge.To == b {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("[%v]:: edge '%v' -> '%v' not found", context, a, b)
 	}
 }

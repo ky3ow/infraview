@@ -163,6 +163,18 @@ func TestModuleVars(t *testing.T) {
 	}
 }
 
+func TestComplexVars(t *testing.T) {
+	got := setup(t, "08-complex-vars/plan.json")
+
+	expectNode(t, got, "name", "tfcoremock_simple_resource.name", "simple resource")
+	expectEdge(t, got, "tfcoremock_simple_resource.name.integer", "module.sample.var.var2_module", "root resource attribute to module var") // TODO think how this should be handled
+	expectEdge(t, got, "tfcoremock_simple_resource.name", "module.sample.var.var2_module", "root resource to module var")
+
+	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.module.sample_child.var.var1_nested", "module resource to nested module var")
+
+	t.Errorf("%v", got.Edges)
+}
+
 func TestNestedRed(t *testing.T) {
 	// assume nested deletion is broken until tested
 	// t.Fatal()

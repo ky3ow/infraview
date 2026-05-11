@@ -1,7 +1,7 @@
 // TODO count, for_each(parent nodes from config, individual in changes)
-// TODO edge attributes to have granular dependency shown
 // TODO check secrets
 // TODO dynamic
+// TODO edge attributes to have granular dependency shown
 package graph
 
 import (
@@ -28,6 +28,16 @@ const (
 	OutputNode   NodeKind = "output"
 )
 
+type ResourceState string
+
+const (
+	StateModify  ResourceState = "modify"
+	StateDelete  ResourceState = "delete"
+	StateCreate  ResourceState = "create"
+	StateNoop    ResourceState = "noop"
+	StateReplace ResourceState = "replace"
+)
+
 type Graph struct {
 	Nodes map[string]Node `json:"nodes"`
 	Edges []Edge          `json:"edges"`
@@ -39,6 +49,7 @@ type Node struct {
 	Name       string              `json:"name"`
 	Type       string              `json:"type,omitempty"`
 	Mode       tfjson.ResourceMode `json:"mode,omitempty"`
+	State      ResourceState       `json:"state,omitempty"`
 	Address    string              `json:"address"`
 	Parent     string              `json:"parent,omitempty"`
 	Parameters []string            `json:"parameters"`
@@ -62,7 +73,7 @@ type ModuleConfig struct {
 	Parent  string
 }
 
-func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
+func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	if cfg.Address != "" {
 		// module address is non-empty only for child modules
 		g.Nodes[cfg.Address] = Node{
@@ -118,7 +129,7 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	for name, m := range mc.Module.ModuleCalls {
 		moduleAbsoluteAddress := tfJoin(cfg.Address, "module", name)
 
-		g.discoverPresentNodes(m, ModuleConfig{
+		g.discoverNodes(m, ModuleConfig{
 			Name:    name,
 			Address: moduleAbsoluteAddress,
 			Parent:  cfg.Address,
@@ -126,7 +137,7 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 }
 
-func (g *Graph) discoverPriorNodes(p *tfjson.Plan) {
+func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
 		if c.Change.Actions.Delete() {
 			g.Nodes[c.Address] = Node{
@@ -135,9 +146,61 @@ func (g *Graph) discoverPriorNodes(p *tfjson.Plan) {
 				Type:    c.Type,
 				Mode:    c.Mode,
 				Address: c.Address,
+				Parent:  c.ModuleAddress,
+			}
+
+			if c.ModuleAddress == "" {
+				continue
+			}
+
+			if _, ok := g.Nodes[c.ModuleAddress]; !ok {
+				// Module was fully nuked
+				name, parent, _ := getModuleParts(c.ModuleAddress)
+				g.Nodes[c.ModuleAddress] = Node{
+					Kind:    ModuleNode,
+					State:   StateDelete,
+					Name:    name,
+					Address: c.ModuleAddress,
+					Parent:  parent,
+				}
 			}
 		}
 	}
+}
+
+func (g *Graph) discoverDeletedResourceEdges(p *tfjson.Plan) error {
+	if p.PriorState == nil || p.PriorState.Values == nil {
+		return fmt.Errorf("no prior state")
+	}
+
+	err := g.processStateModule(p.PriorState.Values.RootModule)
+
+	return err
+}
+
+func (g *Graph) processStateModule(m *tfjson.StateModule) error {
+	var errs []error
+	for _, r := range m.Resources {
+		node, ok := g.Nodes[r.Address]
+		if !ok {
+			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
+		}
+
+		if node.State == StateDelete {
+			for _, dep := range r.DependsOn {
+				g.AddEdge(Edge{
+					From: dep,
+					To:   node.Address,
+				})
+			}
+		}
+	}
+
+	for _, child := range m.ChildModules {
+		errs = append(errs, g.processStateModule(child))
+	}
+
+	return errors.Join(errs...)
 }
 
 func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
@@ -196,7 +259,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 }
 
-func (g *Graph) changesFrom(p *tfjson.Plan) error {
+func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 	var errs []error
 
 	for _, c := range p.ResourceChanges {
@@ -204,6 +267,20 @@ func (g *Graph) changesFrom(p *tfjson.Plan) error {
 
 		if !ok {
 			errs = append(errs, fmt.Errorf("Node %v not found", c.Address))
+			continue
+		}
+
+		switch {
+		case c.Change.Actions.Create():
+			node.State = StateCreate
+		case c.Change.Actions.Replace():
+			node.State = StateReplace
+		case c.Change.Actions.Delete():
+			node.State = StateDelete
+		case c.Change.Actions.NoOp():
+			node.State = StateNoop
+		case c.Change.Actions.Update():
+			node.State = StateModify
 		}
 
 		// TODO handle moving with PreviousAddress
@@ -263,6 +340,26 @@ func processInputs(m *tfjson.ModuleCall) []string {
 	return parameters
 }
 
+func getModuleParts(addr string) (string, string, error) {
+	nameIndex := strings.LastIndex(addr, HCL_PATH_DELIMITER)
+	if nameIndex == -1 {
+		return "", "", fmt.Errorf("Could not get name from %v", addr)
+	}
+
+	name := addr[nameIndex+1:]
+
+	lookup := "module" + HCL_PATH_DELIMITER
+
+	parentIndex := strings.LastIndex(lookup, HCL_PATH_DELIMITER)
+	if parentIndex == -1 {
+		return "", "", fmt.Errorf("Could not get parent from %v", addr)
+	}
+
+	parent := addr[:parentIndex]
+
+	return name, parent, nil
+}
+
 func tfJoin(parts ...string) string {
 	filtered := make([]string, 0, MAX_EXPECTED_PATH_PARTS)
 	for _, part := range parts {
@@ -291,10 +388,19 @@ func New(r io.Reader) (*Graph, error) {
 		seen:  make(map[edgeKey]Edge, 100),
 	}
 
-	graph.discoverPresentNodes(&root, ModuleConfig{})
-	graph.discoverPriorNodes(&plan)
+	// Discover Nodes
+	graph.discoverNodes(&root, ModuleConfig{})
+	graph.discoverDeletedNodes(&plan)
+	// TODO module state(e.g. fully)
+
+	// Enrich nodes
+	graph.discoverResourceChanges(&plan)
+
+	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	graph.changesFrom(&plan)
+	graph.discoverDeletedResourceEdges(&plan) // call only after determined which resources to be deleted
+
+	// make sure all parents exist
 
 	return &graph, nil
 }

@@ -215,6 +215,32 @@ func TestData(t *testing.T) {
 	expectEdge(t, got, "module.test.data.tfcoremock_simple_resource.external_module", "module.test.tfcoremock_simple_resource.name_module", "edges from data resources in root")
 }
 
+func TestDeletedModule(t *testing.T) {
+	// TODO enhance EDGES of deleted nodes INSIDE modules
+	got := setup(t, "10-module-deletions/plan.json")
+	expectNode(t, got, "sample2", "module.sample2", "alive module")
+	expectNode(t, got, "another_simple3", "module.sample2.tfcoremock_simple_resource.another_simple3", "alive resource")
+	expectNode(t, got, "another_simple4", "module.sample2.tfcoremock_simple_resource.another_simple4", "dead resource")
+
+	expectEdge(t, got, "module.sample2.tfcoremock_simple_resource.another_simple3", "module.sample2.tfcoremock_simple_resource.another_simple4", "alive resource to dead")
+
+	expectNode(t, got, "simple", "module.sample.tfcoremock_simple_resource.simple", "dead resource from dead module")
+	expectNode(t, got, "sample_child", "module.sample.module.sample_child", "dead nested module")
+
+	expectNode(t, got, "simple", "module.sample.module.sample_child.tfcoremock_simple_resource.simple", "dead module dead resource")
+}
+
+func TestDeleted(t *testing.T) {
+	got := setup(t, "11-deletion-edges/plan.json")
+
+	expectNode(t, got, "gray", "tfcoremock_simple_resource.gray", "dependency")
+	expectNode(t, got, "red", "tfcoremock_simple_resource.red", "deleted node")
+	expectNode(t, got, "red2", "tfcoremock_simple_resource.red2", "deleted node")
+
+	expectEdge(t, got, "tfcoremock_simple_resource.gray", "tfcoremock_simple_resource.red", "deleted implicit edge")
+	expectEdge(t, got, "tfcoremock_simple_resource.gray", "tfcoremock_simple_resource.red2", "deleted explicit edge")
+}
+
 func setup(t *testing.T, planPath string) *graph.Graph {
 	t.Helper()
 	file, err := os.Open(planPath)

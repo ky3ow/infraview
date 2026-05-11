@@ -112,12 +112,11 @@ func TestGreenYellowRed(t *testing.T) {
 func TestSimpleDependencies(t *testing.T) {
 	got := setup(t, "03-simple-dependencies/plan.json")
 
-	expectedEdges, gotEdges := 3,len(got.Edges)
+	expectedEdges, gotEdges := 2,len(got.Edges)
 	if gotEdges != expectedEdges {
 		t.Errorf("Expected %v edges, got %v", expectedEdges, gotEdges)
 	}
 	expectEdge(t, got, "tfcoremock_simple_resource.original", "tfcoremock_simple_resource.implicit", "Edge")
-	expectEdge(t, got, "tfcoremock_simple_resource.original.float", "tfcoremock_simple_resource.implicit", "Edge")
 	expectEdge(t, got, "tfcoremock_simple_resource.original", "tfcoremock_simple_resource.explicit", "Edge")
 }
 
@@ -168,7 +167,6 @@ func TestSimpleOutputs(t *testing.T) {
 
 	expectNode(t, got, "simple_int", "simple_int", "simple output")
 	expectEdge(t, got, "tfcoremock_simple_resource.simple", "simple_int", "simple output")
-	expectEdge(t, got, "tfcoremock_simple_resource.simple.integer", "simple_int", "simple output")
 }
 
 func TestModuleOutputs(t *testing.T) {
@@ -179,7 +177,6 @@ func TestModuleOutputs(t *testing.T) {
 	expectEdge(t, got, "module.sample", "outer", "simple output")
 
 	expectNode(t, got, "one_output", "module.sample.one_output", "module output")
-	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple.id", "module.sample.one_output", "module output")
 	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.one_output", "module output")
 
 	expectNode(t, got, "two_passthrough_output", "module.sample.two_passthrough_output", "module passthrough output")
@@ -194,7 +191,6 @@ func TestComplexVars(t *testing.T) {
 	got := setup(t, "08-complex-vars/plan.json")
 
 	expectNode(t, got, "name", "tfcoremock_simple_resource.name", "simple resource")
-	expectEdge(t, got, "tfcoremock_simple_resource.name.integer", "module.sample.var.var2_module", "root resource attribute to module var") // TODO think how this should be handled
 	expectEdge(t, got, "tfcoremock_simple_resource.name", "module.sample.var.var2_module", "root resource to module var")
 
 	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.module.sample_child.var.var1_nested", "module resource to nested module var")

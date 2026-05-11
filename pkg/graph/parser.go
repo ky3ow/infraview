@@ -14,6 +14,11 @@ import (
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
+const (
+	HCL_PATH_DELIMITER = "."
+	MAX_EXPECTED_PATH_PARTS = 3
+)
+
 type Graph struct {
 	Nodes map[string]Node `json:"nodes"`
 	Edges []Edge          `json:"edges"`
@@ -48,11 +53,8 @@ type ModuleConfig struct {
 }
 
 func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
-	var prefix string
-
 	if cfg.Address != "" {
-		// case for child modules
-		prefix = cfg.Address + "."
+		// module address is non-empty only for child modules
 		g.Nodes[cfg.Address] = Node{
 			Name:       cfg.Name,
 			Type:       "module",
@@ -61,13 +63,10 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			Parent:     cfg.Parent,
 			Parameters: processInputs(mc),
 		}
-	} else {
-		// this is a root module
-		prefix = ""
 	}
 
 	for _, r := range mc.Module.Resources {
-		absoluteAddress := prefix + r.Address
+		absoluteAddress := tfJoin(cfg.Address, r.Address)
 
 		g.Nodes[absoluteAddress] = Node{
 			Name:       r.Name,
@@ -80,8 +79,8 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 
 	// process module variables
-	for varname, _ := range mc.Module.Variables {
-		absoluteAddress := prefix + "var." + varname
+	for varname := range mc.Module.Variables {
+		absoluteAddress := tfJoin(cfg.Address, "var", varname)
 		g.Nodes[absoluteAddress] = Node{
 			Name:       varname,
 			Type:       "variable",
@@ -95,7 +94,7 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	// process module outputs
 	for name := range mc.Module.Outputs {
 
-		fullname := prefix + name
+		fullname := tfJoin(cfg.Address, name)
 
 		g.Nodes[fullname] = Node{
 			Name:       name,
@@ -109,7 +108,7 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 
 	// recurse into child modules
 	for name, m := range mc.Module.ModuleCalls {
-		moduleAbsoluteAddress := prefix + "module." + name
+		moduleAbsoluteAddress := tfJoin(cfg.Address, "module", name)
 
 		g.discoverPresentNodes(m, ModuleConfig{
 			Name:    name,
@@ -133,23 +132,13 @@ func (g *Graph) discoverPriorNodes(p *tfjson.Plan) {
 }
 
 func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
-	var prefix string
-
-	if cfg.Address != "" {
-		// case for child modules
-		prefix = cfg.Address + "."
-	} else {
-		// this is a root module
-		prefix = ""
-	}
-
 	for _, r := range mc.Module.Resources {
-		absoluteAddress := prefix + r.Address
+		absoluteAddress := tfJoin(cfg.Address, r.Address)
 
 		// implicit dependencies
 		walkExpressions(r.Expressions, func(_, from string) {
 			g.AddEdge(Edge{
-				From: prefix + from,
+				From: tfJoin(cfg.Address, from),
 				To:   absoluteAddress,
 			})
 		})
@@ -157,7 +146,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		// explicit dependencies
 		for _, dep := range r.DependsOn {
 			g.AddEdge(Edge{
-				From: prefix + dep,
+				From: tfJoin(cfg.Address, dep),
 				To:   absoluteAddress,
 			})
 		}
@@ -165,27 +154,22 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 
 	// process module variables
 	// Expressions are nil for root module
-	parentPrefix := cfg.Parent
-	if parentPrefix != "" {
-		parentPrefix += "."
-	}
-
 	walkExpressions(mc.Expressions, func(to, from string) {
 		g.AddEdge(Edge{
-			From: parentPrefix + from,
-			To:   prefix + "var." + to,
+			From: tfJoin(cfg.Parent, from),
+			To:   tfJoin(cfg.Address, "var", to),
 		})
 	})
 
 	for name, o := range mc.Module.Outputs {
-		fullname := prefix + name
+		fullname := tfJoin(cfg.Address, name)
 
 		expressions := make(map[string]*tfjson.Expression)
 		expressions[name] = o.Expression // TODO meh
 
 		walkExpressions(expressions, func(_, from string) {
 			g.AddEdge(Edge{
-				From: prefix + from,
+				From: tfJoin(cfg.Address, from),
 				To:   fullname,
 			})
 		})
@@ -193,7 +177,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 
 	// recurse into child modules
 	for name, m := range mc.Module.ModuleCalls {
-		moduleAbsoluteAddress := prefix + "module." + name
+		moduleAbsoluteAddress := tfJoin(cfg.Address, "module", name)
 
 		g.discoverEdges(m, ModuleConfig{
 			Name:    name,
@@ -254,50 +238,6 @@ func walkExpressions(expressions map[string]*tfjson.Expression, handleReference 
 	}
 }
 
-func guessDeletedNode(c *tfjson.ResourceChange) Node {
-	// TODO test for modules
-	fromChange := Node{
-		Name:    c.Name,
-		Type:    c.Type,
-		Mode:    c.Mode,
-		Address: c.Address,
-	}
-
-	changes, ok := c.Change.Before.(map[string]any)
-	if !ok {
-		panic("I am bad person")
-	}
-
-	parameters := make([]string, 0, len(changes))
-	for key, _ := range changes {
-		parameters = append(parameters, key)
-	}
-
-	fromChange.Parameters = parameters
-
-	parent, err := parentFromString(fromChange.Address, fromChange.Type, fromChange.Name)
-	if err != nil {
-		panic("Deleted node suffix is messed up completely")
-	}
-
-	fromChange.Parent = parent
-
-	return fromChange
-}
-
-func parentFromString(addr, t, name string) (string, error) {
-	suffix := t + "." + name
-
-	idx := strings.LastIndex(addr, suffix)
-	if idx == -1 {
-		return "", fmt.Errorf("Could not get parent from address: %s, type,name: %s,%s", addr, t, name)
-	}
-
-	parent := addr[:idx]
-
-	return strings.TrimSuffix(parent, "."), nil
-}
-
 func processParams(r *tfjson.ConfigResource) []string {
 	parameters := make([]string, 0, len(r.Expressions))
 	for key, _ := range r.Expressions {
@@ -312,6 +252,16 @@ func processInputs(m *tfjson.ModuleCall) []string {
 		parameters = append(parameters, key)
 	}
 	return parameters
+}
+
+func tfJoin(parts ...string) string {
+	filtered := make([]string, 0, MAX_EXPECTED_PATH_PARTS)
+	for _, part := range parts {
+		if part != "" {
+			filtered = append(filtered, part)
+		}
+	}
+	return strings.Join(filtered, HCL_PATH_DELIMITER)
 }
 
 func New(r io.Reader) (*Graph, error) {

@@ -1,7 +1,12 @@
+// TODO count, for_each(parent nodes from config, individual in changes)
+// TODO edge attributes to have granular dependency shown
+// TODO check secrets
+// TODO dynamic
 package graph
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -42,31 +47,7 @@ type ModuleConfig struct {
 	Parent  string
 }
 
-func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
-	// TODO make this Two-pass, Nodes and only then Edges, became too convoluted
-	// TODO edge attributes to have granular dependency shown
-	// TODO count, for_each(parent nodes from config, individual in changes)
-	// TODO check secrets
-	// TODO dynamic
-
-	// TODO clean references(dots should be an odd number to be not attributes?)
-	// vars: odd
-	// var.abc 1
-	// module.something.var.abc 3
-	// module.something.module.another.var.abc 5
-
-	// outputs: even
-	// module.something.its_output 2
-
-	// regular resources: odd
-	// some_resource 1
-	// module.something.resource.name 3
-	// module.something.module.another.resource.name 5
-
-	// resource parameters: even
-	// module.something.module.another.resource.name.float 6
-	// some_resource.name.integer 2
-	// module.something.resource.name.integer 4
+func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	var prefix string
 
 	if cfg.Address != "" {
@@ -85,7 +66,6 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		prefix = ""
 	}
 
-	// process resources
 	for _, r := range mc.Module.Resources {
 		absoluteAddress := prefix + r.Address
 
@@ -97,20 +77,9 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			Parent:     cfg.Address,
 			Parameters: processParams(r),
 		}
-
-		// implicit resource deps
-		g.addEdgesForResourceExpressions(absoluteAddress, prefix, r.Expressions)
-
-		// explicit resource deps
-		for _, dep := range r.DependsOn {
-			g.AddEdges(Edge{
-				From: prefix + dep,
-				To:   absoluteAddress,
-			})
-		}
 	}
 
-	// process module deps
+	// process module variables
 	for varname, _ := range mc.Module.Variables {
 		absoluteAddress := prefix + "var." + varname
 		g.Nodes[absoluteAddress] = Node{
@@ -123,75 +92,8 @@ func (g *Graph) WalkModule(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		}
 	}
 
-	g.addEdgesForModuleVars(cfg.Address, cfg.Parent, mc.Expressions)
-	g.addModuleOutputs(cfg.Address, mc.Module.Outputs)
-
-	// recurse into child modules
-	for name, m := range mc.Module.ModuleCalls {
-		moduleAbsoluteAddress := prefix + "module." + name
-
-		g.WalkModule(m, ModuleConfig{
-			Name:    name,
-			Address: moduleAbsoluteAddress,
-			Parent:  cfg.Address,
-		})
-	}
-}
-
-func (g *Graph) ChangesFrom(p *tfjson.Plan) {
-	for _, c := range p.ResourceChanges {
-		entry, ok := g.Nodes[c.Address]
-		// TODO infer edges from past when deleting
-		if !ok && c.Change.Actions.Delete() {
-			entry = guessDeletedNode(c)
-		}
-
-		// TODO handle moving with PreviousAddress
-		entry.Changes = c.Change
-		g.Nodes[c.Address] = entry
-	}
-}
-
-func (g *Graph) AddEdges(edges ...Edge) {
-	for _, e := range edges {
-		key := edgeKey{from: e.From, to: e.To}
-		if _, ok := g.seen[key]; !ok {
-			g.seen[key] = e
-			g.Edges = append(g.Edges, e)
-		}
-	}
-}
-
-func (g *Graph) addEdgesForModuleVars(module string, parent string, expressions map[string]*tfjson.Expression) {
-	var prefix string
-	if parent != "" {
-		prefix = parent + "."
-	}
-
-	walkExpressions(expressions, func(to, from string) {
-		g.AddEdges(Edge{
-			From: prefix + from,
-			To:   module + ".var." + to,
-		})
-	})
-}
-
-func (g *Graph) addEdgesForResourceExpressions(resource string, prefix string, expressions map[string]*tfjson.Expression) {
-	walkExpressions(expressions, func(_, from string) {
-		g.AddEdges(Edge{
-			From: prefix + from,
-			To:   resource,
-		})
-	})
-}
-
-func (g *Graph) addModuleOutputs(module string, outputs map[string]*tfjson.ConfigOutput) {
-	prefix := module
-	if module != "" {
-		prefix += "."
-	}
-
-	for name, o := range outputs {
+	// process module outputs
+	for name := range mc.Module.Outputs {
 
 		fullname := prefix + name
 
@@ -200,20 +102,140 @@ func (g *Graph) addModuleOutputs(module string, outputs map[string]*tfjson.Confi
 			Type:       "output",
 			Mode:       tfjson.ManagedResourceMode,
 			Address:    fullname,
-			Parent:     module,
+			Parent:     cfg.Address,
 			Parameters: []string{},
 		}
+	}
+
+	// recurse into child modules
+	for name, m := range mc.Module.ModuleCalls {
+		moduleAbsoluteAddress := prefix + "module." + name
+
+		g.discoverPresentNodes(m, ModuleConfig{
+			Name:    name,
+			Address: moduleAbsoluteAddress,
+			Parent:  cfg.Address,
+		})
+	}
+}
+
+func (g *Graph) discoverPriorNodes(p *tfjson.Plan) {
+	for _, c := range p.ResourceChanges {
+		if c.Change.Actions.Delete() {
+			g.Nodes[c.Address] = Node{
+				Name:    c.Name,
+				Type:    c.Type,
+				Mode:    c.Mode,
+				Address: c.Address,
+			}
+		}
+	}
+}
+
+func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
+	var prefix string
+
+	if cfg.Address != "" {
+		// case for child modules
+		prefix = cfg.Address + "."
+	} else {
+		// this is a root module
+		prefix = ""
+	}
+
+	for _, r := range mc.Module.Resources {
+		absoluteAddress := prefix + r.Address
+
+		// implicit dependencies
+		walkExpressions(r.Expressions, func(_, from string) {
+			g.AddEdge(Edge{
+				From: prefix + from,
+				To:   absoluteAddress,
+			})
+		})
+
+		// explicit dependencies
+		for _, dep := range r.DependsOn {
+			g.AddEdge(Edge{
+				From: prefix + dep,
+				To:   absoluteAddress,
+			})
+		}
+	}
+
+	// process module variables
+	// Expressions are nil for root module
+	parentPrefix := cfg.Parent
+	if parentPrefix != "" {
+		parentPrefix += "."
+	}
+
+	walkExpressions(mc.Expressions, func(to, from string) {
+		g.AddEdge(Edge{
+			From: parentPrefix + from,
+			To:   prefix + "var." + to,
+		})
+	})
+
+	for name, o := range mc.Module.Outputs {
+		fullname := prefix + name
 
 		expressions := make(map[string]*tfjson.Expression)
-		expressions[name] = o.Expression
+		expressions[name] = o.Expression // TODO meh
 
 		walkExpressions(expressions, func(_, from string) {
-			g.AddEdges(Edge{
+			g.AddEdge(Edge{
 				From: prefix + from,
 				To:   fullname,
 			})
 		})
 	}
+
+	// recurse into child modules
+	for name, m := range mc.Module.ModuleCalls {
+		moduleAbsoluteAddress := prefix + "module." + name
+
+		g.discoverEdges(m, ModuleConfig{
+			Name:    name,
+			Address: moduleAbsoluteAddress,
+			Parent:  cfg.Address,
+		})
+	}
+}
+
+func (g *Graph) changesFrom(p *tfjson.Plan) error {
+	var errs []error
+
+	for _, c := range p.ResourceChanges {
+		node, ok := g.Nodes[c.Address]
+
+		if !ok {
+			errs = append(errs, fmt.Errorf("Node %v not found", c.Address))
+		}
+
+		// TODO handle moving with PreviousAddress
+		node.Changes = c.Change
+		g.Nodes[c.Address] = node
+	}
+
+	return errors.Join(errs...)
+}
+
+func (g *Graph) AddEdge(e Edge) error {
+	to, okTo := g.Nodes[e.To]
+	from, okFrom := g.Nodes[e.From]
+
+	if !okTo || !okFrom {
+		return fmt.Errorf("Unhandled edge between %v -> %v", to, from)
+	}
+
+	key := edgeKey{from: e.From, to: e.To}
+	if _, ok := g.seen[key]; !ok {
+		g.seen[key] = e
+		g.Edges = append(g.Edges, e)
+	}
+
+	return nil
 }
 
 func walkExpressions(expressions map[string]*tfjson.Expression, handleReference func(key, ref string)) {
@@ -227,7 +249,7 @@ func walkExpressions(expressions map[string]*tfjson.Expression, handleReference 
 		}
 
 		for _, nested := range e.NestedBlocks {
-			walkExpressions(nested, handleReference)
+			walkExpressions(nested, handleReference) // TODO have to test with nested blocks
 		}
 	}
 }
@@ -310,8 +332,10 @@ func New(r io.Reader) (*Graph, error) {
 		seen:  make(map[edgeKey]Edge, 100),
 	}
 
-	graph.WalkModule(root, ModuleConfig{})
-	graph.ChangesFrom(&plan)
+	graph.discoverPresentNodes(root, ModuleConfig{})
+	graph.discoverPriorNodes(&plan)
+	graph.discoverEdges(root, ModuleConfig{})
+	graph.changesFrom(&plan)
 
 	return &graph, nil
 }

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "id": {
+      "string": "nested-id-sample1"
+    },
+    "integer": {
+      "number": "2"
+    }
+  }
+}

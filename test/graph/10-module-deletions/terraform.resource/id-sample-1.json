@@ -1,0 +1,10 @@
+{
+  "values": {
+    "bool": {
+      "boolean": true
+    },
+    "id": {
+      "string": "id-sample-1"
+    }
+  }
+}

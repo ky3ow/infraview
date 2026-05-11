@@ -1,5 +1,4 @@
 // TODO count, for_each(parent nodes from config, individual in changes)
-// TODO data resources
 // TODO edge attributes to have granular dependency shown
 // TODO check secrets
 // TODO dynamic

@@ -1,0 +1,257 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.9",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_simple_resource.name",
+          "mode": "managed",
+          "type": "tfcoremock_simple_resource",
+          "name": "name",
+          "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+          "schema_version": 0,
+          "values": {
+            "bool": null,
+            "float": null,
+            "id": "core-id",
+            "integer": 1,
+            "number": null,
+            "string": null
+          },
+          "sensitive_values": {}
+        }
+      ],
+      "child_modules": [
+        {
+          "resources": [
+            {
+              "address": "module.test.tfcoremock_simple_resource.name_module",
+              "mode": "managed",
+              "type": "tfcoremock_simple_resource",
+              "name": "name_module",
+              "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+              "schema_version": 0,
+              "values": {
+                "bool": null,
+                "float": null,
+                "id": "module-core-id2",
+                "integer": 2,
+                "number": null,
+                "string": null
+              },
+              "sensitive_values": {}
+            }
+          ],
+          "address": "module.test"
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "tfcoremock_simple_resource.name",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "name",
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "bool": null,
+          "float": null,
+          "id": "core-id",
+          "integer": 1,
+          "number": null,
+          "string": null
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "module.test.tfcoremock_simple_resource.name_module",
+      "module_address": "module.test",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "name_module",
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "bool": null,
+          "float": null,
+          "id": "module-core-id2",
+          "integer": 2,
+          "number": null,
+          "string": null
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    }
+  ],
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.14.9",
+    "values": {
+      "root_module": {
+        "resources": [
+          {
+            "address": "data.tfcoremock_simple_resource.external",
+            "mode": "data",
+            "type": "tfcoremock_simple_resource",
+            "name": "external",
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "data-id",
+              "integer": 1,
+              "number": null,
+              "string": "not_managed"
+            },
+            "sensitive_values": {}
+          }
+        ],
+        "child_modules": [
+          {
+            "resources": [
+              {
+                "address": "module.test.data.tfcoremock_simple_resource.external_module",
+                "mode": "data",
+                "type": "tfcoremock_simple_resource",
+                "name": "external_module",
+                "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+                "schema_version": 0,
+                "values": {
+                  "bool": null,
+                  "float": null,
+                  "id": "data-id2",
+                  "integer": 2,
+                  "number": null,
+                  "string": "not_managed2"
+                },
+                "sensitive_values": {}
+              }
+            ],
+            "address": "module.test"
+          }
+        ]
+      }
+    }
+  },
+  "configuration": {
+    "provider_config": {
+      "tfcoremock": {
+        "name": "tfcoremock",
+        "full_name": "registry.terraform.io/hashicorp/tfcoremock",
+        "version_constraint": "0.1.2"
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_simple_resource.name",
+          "mode": "managed",
+          "type": "tfcoremock_simple_resource",
+          "name": "name",
+          "provider_config_key": "tfcoremock",
+          "expressions": {
+            "id": {
+              "constant_value": "core-id"
+            },
+            "integer": {
+              "references": [
+                "data.tfcoremock_simple_resource.external.integer",
+                "data.tfcoremock_simple_resource.external"
+              ]
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "data.tfcoremock_simple_resource.external",
+          "mode": "data",
+          "type": "tfcoremock_simple_resource",
+          "name": "external",
+          "provider_config_key": "tfcoremock",
+          "expressions": {
+            "id": {
+              "constant_value": "data-id"
+            }
+          },
+          "schema_version": 0
+        }
+      ],
+      "module_calls": {
+        "test": {
+          "source": "./modules_a",
+          "module": {
+            "resources": [
+              {
+                "address": "tfcoremock_simple_resource.name_module",
+                "mode": "managed",
+                "type": "tfcoremock_simple_resource",
+                "name": "name_module",
+                "provider_config_key": "tfcoremock",
+                "expressions": {
+                  "id": {
+                    "constant_value": "module-core-id2"
+                  },
+                  "integer": {
+                    "references": [
+                      "data.tfcoremock_simple_resource.external_module.integer",
+                      "data.tfcoremock_simple_resource.external_module"
+                    ]
+                  }
+                },
+                "schema_version": 0
+              },
+              {
+                "address": "data.tfcoremock_simple_resource.external_module",
+                "mode": "data",
+                "type": "tfcoremock_simple_resource",
+                "name": "external_module",
+                "provider_config_key": "tfcoremock",
+                "expressions": {
+                  "id": {
+                    "constant_value": "data-id2"
+                  }
+                },
+                "schema_version": 0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "relevant_attributes": [
+    {
+      "resource": "data.tfcoremock_simple_resource.external",
+      "attribute": [
+        "integer"
+      ]
+    },
+    {
+      "resource": "module.test.data.tfcoremock_simple_resource.external_module",
+      "attribute": [
+        "integer"
+      ]
+    }
+  ],
+  "timestamp": "2026-05-11T12:49:37Z",
+  "applyable": true,
+  "complete": true,
+  "errored": false
+}

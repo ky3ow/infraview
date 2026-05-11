@@ -201,6 +201,20 @@ func TestNestedRed(t *testing.T) {
 	// t.Fatal()
 }
 
+func TestData(t *testing.T) {
+	got := setup(t, "09-data-resources/plan.json")
+
+	expectNode(t, got, "name", "tfcoremock_simple_resource.name", "simple resource")
+	expectNode(t, got, "external", "data.tfcoremock_simple_resource.external", "simple data resource")
+
+	expectNode(t, got, "name_module", "module.test.tfcoremock_simple_resource.name_module", "simple resource in module")
+	expectNode(t, got, "external_module", "module.test.data.tfcoremock_simple_resource.external_module", "simple data resource in module")
+
+	expectEdge(t, got, "data.tfcoremock_simple_resource.external", "tfcoremock_simple_resource.name", "edges from data resources in root")
+
+	expectEdge(t, got, "module.test.data.tfcoremock_simple_resource.external_module", "module.test.tfcoremock_simple_resource.name_module", "edges from data resources in root")
+}
+
 func setup(t *testing.T, planPath string) *graph.Graph {
 	t.Helper()
 	file, err := os.Open(planPath)

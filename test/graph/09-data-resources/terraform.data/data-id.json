@@ -1,0 +1,13 @@
+{
+	"values": {
+		"integer": {
+			"number": "1"
+		},
+		"id": {
+			"string": "data-id"
+		},
+		"string": {
+			"string": "not_managed"
+		}
+	}
+}

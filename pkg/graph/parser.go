@@ -1,4 +1,5 @@
 // TODO count, for_each(parent nodes from config, individual in changes)
+// TODO data resources
 // TODO edge attributes to have granular dependency shown
 // TODO check secrets
 // TODO dynamic
@@ -15,8 +16,17 @@ import (
 )
 
 const (
-	HCL_PATH_DELIMITER = "."
+	HCL_PATH_DELIMITER      = "."
 	MAX_EXPECTED_PATH_PARTS = 3
+)
+
+type NodeKind string
+
+const (
+	ResourceNode NodeKind = "resource"
+	ModuleNode   NodeKind = "module"
+	VariableNode NodeKind = "variable"
+	OutputNode   NodeKind = "output"
 )
 
 type Graph struct {
@@ -26,9 +36,10 @@ type Graph struct {
 }
 
 type Node struct {
+	Kind       NodeKind            `json:"kind"`
 	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Mode       tfjson.ResourceMode `json:"mode"`
+	Type       string              `json:"type,omitempty"`
+	Mode       tfjson.ResourceMode `json:"mode,omitempty"`
 	Address    string              `json:"address"`
 	Parent     string              `json:"parent,omitempty"`
 	Parameters []string            `json:"parameters"`
@@ -56,9 +67,8 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	if cfg.Address != "" {
 		// module address is non-empty only for child modules
 		g.Nodes[cfg.Address] = Node{
+			Kind:       ModuleNode,
 			Name:       cfg.Name,
-			Type:       "module",
-			Mode:       tfjson.ManagedResourceMode,
 			Address:    cfg.Address,
 			Parent:     cfg.Parent,
 			Parameters: processInputs(mc),
@@ -69,6 +79,7 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		absoluteAddress := tfJoin(cfg.Address, r.Address)
 
 		g.Nodes[absoluteAddress] = Node{
+			Kind:       ResourceNode,
 			Name:       r.Name,
 			Type:       r.Type,
 			Mode:       r.Mode,
@@ -82,9 +93,8 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	for varname := range mc.Module.Variables {
 		absoluteAddress := tfJoin(cfg.Address, "var", varname)
 		g.Nodes[absoluteAddress] = Node{
+			Kind:       VariableNode,
 			Name:       varname,
-			Type:       "variable",
-			Mode:       tfjson.ManagedResourceMode,
 			Address:    absoluteAddress,
 			Parent:     cfg.Address,
 			Parameters: []string{},
@@ -97,9 +107,8 @@ func (g *Graph) discoverPresentNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		fullname := tfJoin(cfg.Address, name)
 
 		g.Nodes[fullname] = Node{
+			Kind:       OutputNode,
 			Name:       name,
-			Type:       "output",
-			Mode:       tfjson.ManagedResourceMode,
 			Address:    fullname,
 			Parent:     cfg.Address,
 			Parameters: []string{},
@@ -122,6 +131,7 @@ func (g *Graph) discoverPriorNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
 		if c.Change.Actions.Delete() {
 			g.Nodes[c.Address] = Node{
+				Kind:    ResourceNode,
 				Name:    c.Name,
 				Type:    c.Type,
 				Mode:    c.Mode,
@@ -240,7 +250,7 @@ func walkExpressions(expressions map[string]*tfjson.Expression, handleReference 
 
 func processParams(r *tfjson.ConfigResource) []string {
 	parameters := make([]string, 0, len(r.Expressions))
-	for key, _ := range r.Expressions {
+	for key := range r.Expressions {
 		parameters = append(parameters, key)
 	}
 	return parameters
@@ -248,7 +258,7 @@ func processParams(r *tfjson.ConfigResource) []string {
 
 func processInputs(m *tfjson.ModuleCall) []string {
 	parameters := make([]string, 0, len(m.Expressions))
-	for key, _ := range m.Expressions {
+	for key := range m.Expressions {
 		parameters = append(parameters, key)
 	}
 	return parameters
@@ -272,7 +282,7 @@ func New(r io.Reader) (*Graph, error) {
 		return nil, err
 	}
 
-	root := &tfjson.ModuleCall{
+	root := tfjson.ModuleCall{
 		Module: plan.Config.RootModule,
 	}
 
@@ -282,9 +292,9 @@ func New(r io.Reader) (*Graph, error) {
 		seen:  make(map[edgeKey]Edge, 100),
 	}
 
-	graph.discoverPresentNodes(root, ModuleConfig{})
+	graph.discoverPresentNodes(&root, ModuleConfig{})
 	graph.discoverPriorNodes(&plan)
-	graph.discoverEdges(root, ModuleConfig{})
+	graph.discoverEdges(&root, ModuleConfig{})
 	graph.changesFrom(&plan)
 
 	return &graph, nil

@@ -1,5 +1,3 @@
-// TODO ! count, for_each(parent nodes from config, individual in changes) - parse new nodes and parent nodes, parse edges, parse deleted nodes, parse deleted edges
-// TODO ! check secrets
 // TODO dynamic
 // TODO edge attributes to have granular dependency shown
 package graph
@@ -89,7 +87,7 @@ type NodeChange struct {
 // Discovers nodes for: resources, modules, variables, outputs.
 // Works on configuration section, needs mock of a module call for root configuration.
 // DOES NOT handle deleted nodes as they do not exist in configuration when removed.
-// Also creates a node for count/for_each resources,
+// Also creates a node for count/for_each resources, !TODO
 // which are future parents for individual indexed instances(discovered from resource_changes)
 func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	if cfg.Address != "" {
@@ -184,9 +182,8 @@ func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 					break
 				}
 
-				g.Nodes[c.ModuleAddress] = Node{
+				g.Nodes[currentModule] = Node{
 					Kind:    ModuleNode,
-					State:   StateDelete,
 					Name:    name,
 					Address: currentModule,
 					Parent:  parent,
@@ -208,15 +205,14 @@ func (g *Graph) discoverDeletedResourceEdges(p *tfjson.Plan) error {
 	return err
 }
 
+// Recursive helper to process prior state to find deleted edges with node check
 func (g *Graph) processStateModule(m *tfjson.StateModule) error {
 	var errs []error
 	for _, r := range m.Resources {
 		node, ok := g.Nodes[r.Address]
 		if !ok {
 			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
-		}
-
-		if node.State == StateDelete {
+		} else if node.State == StateDelete {
 			for _, dep := range r.DependsOn {
 				g.AddEdge(Edge{
 					From: dep,
@@ -332,11 +328,14 @@ func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 	return errors.Join(errs...)
 }
 
+// Returns stripped out of sensitive fields after/before changes.
+// Returns error if before/after/-sensitive parts were not converted cleanly
+// tfjson gives `any` which is not comfortable to work with.
+// TODO unmarshall json with self written thing
 func stripChange(c *tfjson.Change) (*NodeChange, error) {
 	var stripped NodeChange
 
 	after, err := stripSensitive(c.After, c.AfterSensitive)
-	fmt.Printf("STRIPPED, %v, %v", after, err)
 
 	if err != nil {
 		return nil, err
@@ -450,6 +449,7 @@ func processInputs(m *tfjson.ModuleCall) []string {
 }
 
 // Gets module name and its parent address
+// TODO check how it works with count/for_each modules
 func getModuleParts(addr string) (string, string, error) {
 	parts := strings.Split(addr, HCL_PATH_DELIMITER)
 	if len(parts) < 2 {
@@ -498,14 +498,20 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover Nodes
 	graph.discoverNodes(&root, ModuleConfig{})
+	// TODO discover parent nodes for COUNT/FOR_EACH (parent nodes from config, individual in changes)
+	// TODO discover child nodes for COUNT/FOR_EACH
 	graph.discoverDeletedNodes(&plan)
-	// TODO module state(e.g. fully)
+	// TODO discover deleted parent/child resource nodes
 
 	// Enrich nodes
+	// TODO discover MODULE state
 	graph.discoverResourceChanges(&plan)
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
+	// TODO discover edges for parent nodes
+	// TODO discover edges for child nodes
+	// TODO discover deleted parent/child edges
 	graph.discoverDeletedResourceEdges(&plan) // call only after determined which resources to be deleted
 
 	// make sure all parents exist

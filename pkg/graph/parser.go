@@ -212,7 +212,7 @@ func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
 	for _, r := range m.Resources {
 		node, ok := g.Nodes[r.Address]
 		if !ok {
-			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
+			errs = append(errs, fmt.Errorf("discover instance edges(root): no node with address %v", r.Address))
 		} else if node.isInstance {
 			for _, dep := range r.DependsOn {
 				g.AddEdge(Edge{
@@ -225,7 +225,7 @@ func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
 	}
 
 	for _, child := range m.ChildModules {
-		errs = append(errs, g.processStateModule(child))
+		errs = append(errs, g.discoverInstanceEdgesRecurse(child))
 	}
 
 	return errors.Join(errs...)

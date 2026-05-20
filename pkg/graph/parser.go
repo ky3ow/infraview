@@ -38,7 +38,8 @@ type EdgeType string
 
 const (
 	EdgeDirect     EdgeType = "direct"
-	EdgeTransitive EdgeType = "transitive" // potentially
+	EdgeTransitive EdgeType = "transitive"
+	EdgeInstance   EdgeType = "instance"
 )
 
 type Graph struct {
@@ -57,6 +58,7 @@ type Node struct {
 	Parent     string              `json:"parent,omitempty"`
 	Parameters []string            `json:"parameters"`
 	Changes    *NodeChange         `json:"changes"`
+	isInstance bool
 }
 
 type Edge struct {
@@ -85,7 +87,7 @@ type NodeChange struct {
 // Discovers nodes for: resources, modules, variables, outputs.
 // Works on configuration section, needs mock of a module call for root configuration.
 // DOES NOT handle deleted nodes as they do not exist in configuration when removed.
-// Also creates a node for count/for_each resources, !TODO
+// Also creates a node for count/for_each resources,
 // which are future parents for individual indexed instances(discovered from resource_changes).
 // TODO should move parameters to enrichment phase?
 func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
@@ -182,6 +184,7 @@ func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
 					Type:       c.Type,
 					Address:    c.Address,
 					Parent:     parent,
+					isInstance: true,
 					Parameters: []string{},
 				}
 			} else {
@@ -192,6 +195,10 @@ func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (g *Graph) discoverInstanceEdges(p *tfjson.Plan) error {
+	return fmt.Errorf("")
 }
 
 // Discovers deleted nodes from Resource changes.
@@ -292,6 +299,32 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 				Type: EdgeDirect,
 			})
 		}
+
+		// implicit loop dependencies
+		if r.CountExpression != nil {
+			countExpressions := make(map[string]*tfjson.Expression)
+			countExpressions["count_expression"] = r.CountExpression
+			walkExpressions(countExpressions, func(_, from string) {
+				g.AddEdge(Edge{
+					From: tfJoin(cfg.Address, from),
+					To:   absoluteAddress,
+					Type: EdgeDirect,
+				})
+			})
+		}
+
+		if r.ForEachExpression != nil {
+			foreachExpressions := make(map[string]*tfjson.Expression)
+			foreachExpressions["for_each_expression"] = r.ForEachExpression
+			walkExpressions(foreachExpressions, func(_, from string) {
+				g.AddEdge(Edge{
+					From: tfJoin(cfg.Address, from),
+					To:   absoluteAddress,
+					Type: EdgeDirect,
+				})
+			})
+		}
+
 	}
 
 	// process module variables
@@ -338,6 +371,10 @@ func (g *Graph) AddEdge(e Edge) error {
 
 	if !okTo || !okFrom {
 		return fmt.Errorf("Unhandled edge between %v -> %v", to, from)
+	}
+
+	if to.isInstance || from.isInstance {
+		e.Type = EdgeInstance
 	}
 
 	key := edgeKey{from: e.From, to: e.To}
@@ -387,10 +424,8 @@ func New(r io.Reader) (*Graph, error) {
 	}
 
 	// Discover Nodes
-	// TODO discover parent nodes for COUNT/FOR_EACH (parent nodes from config, individual in changes)
 	graph.discoverNodes(&root, ModuleConfig{})
 	graph.discoverDeletedNodes(&plan)
-
 	graph.discoverInstanceNodes(&plan)
 	// TODO discover deleted parent/child resource nodes
 
@@ -401,10 +436,10 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	// TODO discover edges for parent nodes
+	// graph.discoverInstanceEdges(&plan)
 	// TODO discover edges for child nodes
 	// TODO discover deleted parent/child edges
-	graph.discoverDeletedResourceEdges(&plan) // call only after determined which resources to be deleted
+	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
 
 	// make sure all parents exist
 

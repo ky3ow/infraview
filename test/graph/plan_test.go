@@ -244,6 +244,7 @@ func TestCount(t *testing.T) {
 	got := setup(t, "12-create-count/plan.json")
 
 	expectNode(t, got, "counted", "tfcoremock_simple_resource.counted", "parent node")
+	expectContainer(t, got, "tfcoremock_simple_resource.counted", "parent node is container")
 	expectNode(t, got, "dep", "tfcoremock_simple_resource.dep", "dependant")
 
 	expectNode(t, got, "counted[0]", "tfcoremock_simple_resource.counted[0]", "child node")

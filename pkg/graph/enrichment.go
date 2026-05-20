@@ -116,3 +116,19 @@ func stripSensitive(changePart any, sensitivePart any) (map[string]any, error) {
 	return newPart, nil
 }
 
+func processParams(r *tfjson.ConfigResource) []string {
+	parameters := make([]string, 0, len(r.Expressions))
+	for key := range r.Expressions {
+		parameters = append(parameters, key)
+	}
+	return parameters
+}
+
+func processInputs(m *tfjson.ModuleCall) []string {
+	parameters := make([]string, 0, len(m.Expressions))
+	for key := range m.Expressions {
+		parameters = append(parameters, key)
+	}
+	return parameters
+}
+

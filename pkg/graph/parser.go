@@ -82,7 +82,8 @@ type NodeChange struct {
 // Works on configuration section, needs mock of a module call for root configuration.
 // DOES NOT handle deleted nodes as they do not exist in configuration when removed.
 // Also creates a node for count/for_each resources, !TODO
-// which are future parents for individual indexed instances(discovered from resource_changes)
+// which are future parents for individual indexed instances(discovered from resource_changes).
+// TODO should move parameters to enrichment phase?
 func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	if cfg.Address != "" {
 		// module address is non-empty only for child modules
@@ -314,22 +315,6 @@ func walkExpressions(expressions map[string]*tfjson.Expression, handleReference 
 			walkExpressions(nested, handleReference) // TODO have to test with nested blocks
 		}
 	}
-}
-
-func processParams(r *tfjson.ConfigResource) []string {
-	parameters := make([]string, 0, len(r.Expressions))
-	for key := range r.Expressions {
-		parameters = append(parameters, key)
-	}
-	return parameters
-}
-
-func processInputs(m *tfjson.ModuleCall) []string {
-	parameters := make([]string, 0, len(m.Expressions))
-	for key := range m.Expressions {
-		parameters = append(parameters, key)
-	}
-	return parameters
 }
 
 func New(r io.Reader) (*Graph, error) {

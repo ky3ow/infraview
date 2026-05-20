@@ -197,8 +197,7 @@ func TestComplexVars(t *testing.T) {
 }
 
 func TestNestedRed(t *testing.T) {
-	// assume nested deletion is broken until tested
-	// t.Fatal()
+	// TODO test tested deletion
 }
 
 func TestData(t *testing.T) {

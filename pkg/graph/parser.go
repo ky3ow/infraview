@@ -1,5 +1,5 @@
-// TODO count, for_each(parent nodes from config, individual in changes)
-// TODO check secrets
+// TODO ! count, for_each(parent nodes from config, individual in changes) - parse new nodes and parent nodes, parse edges, parse deleted nodes, parse deleted edges
+// TODO ! check secrets
 // TODO dynamic
 // TODO edge attributes to have granular dependency shown
 package graph
@@ -38,6 +38,13 @@ const (
 	StateReplace ResourceState = "replace"
 )
 
+type EdgeType string
+
+const (
+	EdgeDirect     EdgeType = "direct"
+	EdgeTransitive EdgeType = "transitive" // potentially
+)
+
 type Graph struct {
 	Nodes map[string]Node `json:"nodes"`
 	Edges []Edge          `json:"edges"`
@@ -59,6 +66,7 @@ type Node struct {
 type Edge struct {
 	From               string   `json:"from"`
 	To                 string   `json:"to"`
+	Type               EdgeType `json:"type"`
 	RelevantAttributes []string `json:"attributes,omitempty"`
 }
 
@@ -73,6 +81,11 @@ type ModuleConfig struct {
 	Parent  string
 }
 
+// Discovers nodes for: resources, modules, variables, outputs.
+// Works on configuration section, needs mock of a module call for root configuration.
+// DOES NOT handle deleted nodes as they do not exist in configuration when removed.
+// Also creates a node for count/for_each resources,
+// which are future parents for individual indexed instances(discovered from resource_changes)
 func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	if cfg.Address != "" {
 		// module address is non-empty only for child modules
@@ -137,6 +150,9 @@ func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 }
 
+// Discovers deleted nodes from Resource changes.
+// Modules are not real resources so modules need to be inferred if missing.
+// ModuleAddress is full address of module.
 func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
 		if c.Change.Actions.Delete() {
@@ -149,20 +165,29 @@ func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 				Parent:  c.ModuleAddress,
 			}
 
-			if c.ModuleAddress == "" {
-				continue
-			}
+			currentModule := c.ModuleAddress
 
-			if _, ok := g.Nodes[c.ModuleAddress]; !ok {
-				// Module was fully nuked
-				name, parent, _ := getModuleParts(c.ModuleAddress)
+			for currentModule != "" {
+				if _, ok := g.Nodes[currentModule]; ok {
+					break
+				}
+
+				name, parent, err := getModuleParts(currentModule)
+
+				if err != nil {
+					// TODO handle err
+					break
+				}
+
 				g.Nodes[c.ModuleAddress] = Node{
 					Kind:    ModuleNode,
 					State:   StateDelete,
 					Name:    name,
-					Address: c.ModuleAddress,
+					Address: currentModule,
 					Parent:  parent,
 				}
+
+				currentModule = parent
 			}
 		}
 	}
@@ -341,21 +366,18 @@ func processInputs(m *tfjson.ModuleCall) []string {
 }
 
 func getModuleParts(addr string) (string, string, error) {
-	nameIndex := strings.LastIndex(addr, HCL_PATH_DELIMITER)
-	if nameIndex == -1 {
+	parts := strings.Split(addr, HCL_PATH_DELIMITER)
+	if len(parts) < 2 {
 		return "", "", fmt.Errorf("Could not get name from %v", addr)
 	}
 
-	name := addr[nameIndex+1:]
+	name := parts[len(parts)-1]
 
-	lookup := "module" + HCL_PATH_DELIMITER
-
-	parentIndex := strings.LastIndex(lookup, HCL_PATH_DELIMITER)
-	if parentIndex == -1 {
-		return "", "", fmt.Errorf("Could not get parent from %v", addr)
+	if len(parts) == 2 {
+		return name, "", nil
 	}
 
-	parent := addr[:parentIndex]
+	parent := strings.Join(parts[:len(parts)-2], HCL_PATH_DELIMITER)
 
 	return name, parent, nil
 }

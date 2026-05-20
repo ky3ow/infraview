@@ -60,7 +60,7 @@ type Node struct {
 	Address    string              `json:"address"`
 	Parent     string              `json:"parent,omitempty"`
 	Parameters []string            `json:"parameters"`
-	Changes    *tfjson.Change      `json:"changes"`
+	Changes    *NodeChange         `json:"changes"`
 }
 
 type Edge struct {
@@ -79,6 +79,11 @@ type ModuleConfig struct {
 	Name    string
 	Address string
 	Parent  string
+}
+
+type NodeChange struct {
+	Before map[string]any `json:"before"`
+	After  map[string]any `json:"after"`
 }
 
 // Discovers nodes for: resources, modules, variables, outputs.
@@ -284,6 +289,8 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 }
 
+// Enhances *existing* resource nodes with their state
+// and changes in form of json objects
 func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 	var errs []error
 
@@ -309,13 +316,87 @@ func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 		}
 
 		// TODO handle moving with PreviousAddress
-		node.Changes = c.Change
+		// TODO process change and store only before/after values
+		// with stripped secrets
+		changes, err := stripChange(c.Change)
+
+		if err != nil {
+			return err
+		}
+
+		node.Changes = changes
+
 		g.Nodes[c.Address] = node
 	}
 
 	return errors.Join(errs...)
 }
 
+func stripChange(c *tfjson.Change) (*NodeChange, error) {
+	var stripped NodeChange
+
+	after, err := stripSensitive(c.After, c.AfterSensitive)
+	fmt.Printf("STRIPPED, %v, %v", after, err)
+
+	if err != nil {
+		return nil, err
+	}
+
+	before, err := stripSensitive(c.Before, c.BeforeSensitive)
+
+	if err != nil {
+		return nil, err
+	}
+
+	stripped.After = after
+	stripped.Before = before
+
+	return &stripped, nil
+}
+
+func stripSensitive(changePart any, sensitivePart any) (map[string]any, error) {
+	var newPart map[string]any
+	var oldPart map[string]any
+	var sensitive map[string]any
+
+	switch v := changePart.(type) {
+	case map[string]any:
+		oldPart = v
+		if v != nil {
+			newPart = make(map[string]any, len(v))
+		}
+	case nil:
+		oldPart = nil
+		newPart = nil
+	default:
+		return nil, fmt.Errorf("Unexpected value of change part, not map or null")
+	}
+
+	switch v := sensitivePart.(type) {
+	case map[string]any:
+		sensitive = v
+	case bool:
+		if v {
+			return nil, fmt.Errorf("Unexpected TRUE for sensitive map")
+		}
+		sensitive = nil
+	default:
+		return nil, fmt.Errorf("Unexpected value of sensitive part, not map or bool")
+	}
+
+	for k, v := range oldPart {
+		isSensitive, ok := sensitive[k].(bool)
+		if ok && isSensitive {
+			newPart[k] = "<sensitive>"
+		} else {
+			newPart[k] = v
+		}
+	}
+
+	return newPart, nil
+}
+
+// Safely add edge with deduplication
 func (g *Graph) AddEdge(e Edge) error {
 	to, okTo := g.Nodes[e.To]
 	from, okFrom := g.Nodes[e.From]
@@ -333,6 +414,9 @@ func (g *Graph) AddEdge(e Edge) error {
 	return nil
 }
 
+// Walks expression maps and handles references.
+// callback accepts expression key which is expression name
+// and reference itself(the reference address)
 func walkExpressions(expressions map[string]*tfjson.Expression, handleReference func(key, ref string)) {
 	for key, e := range expressions {
 		if e.ConstantValue != tfjson.UnknownConstantValue {
@@ -365,6 +449,7 @@ func processInputs(m *tfjson.ModuleCall) []string {
 	return parameters
 }
 
+// Gets module name and its parent address
 func getModuleParts(addr string) (string, string, error) {
 	parts := strings.Split(addr, HCL_PATH_DELIMITER)
 	if len(parts) < 2 {
@@ -382,6 +467,7 @@ func getModuleParts(addr string) (string, string, error) {
 	return name, parent, nil
 }
 
+// Joins HCL address parts avoiding accidental path separators
 func tfJoin(parts ...string) string {
 	filtered := make([]string, 0, MAX_EXPECTED_PATH_PARTS)
 	for _, part := range parts {

@@ -51,7 +51,7 @@ func TestSimpleResource(t *testing.T) {
 		}
 	}
 
-	for k, v := range resource.Changes.After.(map[string]any) {
+	for k, v := range resource.Changes.After {
 		if expectedParams[k] != v {
 			t.Errorf("Expected param(%v) %v, got: %v", k, expectedParams[k], v)
 		}
@@ -84,7 +84,7 @@ func TestGreenYellowRed(t *testing.T) {
 		t.Errorf("green is missing")
 	}
 
-	if green.Changes == nil || green.Changes.Actions[0] != "create" {
+	if green.Changes == nil || green.State != graph.StateCreate {
 		t.Errorf("green should create")
 	}
 
@@ -94,7 +94,7 @@ func TestGreenYellowRed(t *testing.T) {
 		t.Errorf("yellow is missing")
 	}
 
-	if yellow.Changes == nil || yellow.Changes.Actions[0] != "update" {
+	if yellow.Changes == nil || yellow.State != graph.StateModify {
 		t.Errorf("yellow should update")
 	}
 
@@ -104,7 +104,7 @@ func TestGreenYellowRed(t *testing.T) {
 		t.Errorf("red is missing")
 	}
 
-	if red.Changes == nil || red.Changes.Actions[0] != "delete" {
+	if red.Changes == nil || red.State != graph.StateDelete {
 		t.Errorf("red should delete")
 	}
 }

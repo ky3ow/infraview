@@ -254,6 +254,10 @@ func TestCount(t *testing.T) {
 	expectParent(t, got, "tfcoremock_simple_resource.counted[0]", "tfcoremock_simple_resource.counted", "child node parent")
 	expectParent(t, got, "tfcoremock_simple_resource.counted[1]", "tfcoremock_simple_resource.counted", "child node parent")
 	expectParent(t, got, "tfcoremock_simple_resource.counted[2]", "tfcoremock_simple_resource.counted", "child node parent")
+
+	expectEdge(t, got, "var.a", "tfcoremock_simple_resource.counted", "var to parent node")
+	expectEdge(t, got, "tfcoremock_simple_resource.counted[1]", "tfcoremock_simple_resource.dep", "dependency to instance")
+	expectEdge(t, got, "tfcoremock_simple_resource.counted", "tfcoremock_simple_resource.dep", "dependency to parent")
 }
 
 func TestForEach(t *testing.T) {
@@ -268,6 +272,10 @@ func TestForEach(t *testing.T) {
 
 	expectParent(t, got, "tfcoremock_simple_resource.counted[\"one\"]", "tfcoremock_simple_resource.counted", "child node parent")
 	expectParent(t, got, "tfcoremock_simple_resource.counted[\"two\"]", "tfcoremock_simple_resource.counted", "child node parent")
+
+	expectEdge(t, got, "var.a", "tfcoremock_simple_resource.counted", "var to parent node")
+	expectEdge(t, got, "tfcoremock_simple_resource.counted[\"one\"]", "tfcoremock_simple_resource.dep", "dependency to instance")
+	expectEdge(t, got, "tfcoremock_simple_resource.counted", "tfcoremock_simple_resource.dep", "dependency to parent")
 }
 
 func setup(t *testing.T, planPath string) *graph.Graph {

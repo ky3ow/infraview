@@ -198,7 +198,37 @@ func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
 }
 
 func (g *Graph) discoverInstanceEdges(p *tfjson.Plan) error {
-	return fmt.Errorf("")
+	if p.PriorState == nil || p.PriorState.Values == nil {
+		return fmt.Errorf("no prior state")
+	}
+
+	err := g.discoverInstanceEdgesRecurse(p.PriorState.Values.RootModule)
+
+	return err
+}
+
+func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
+	var errs []error
+	for _, r := range m.Resources {
+		node, ok := g.Nodes[r.Address]
+		if !ok {
+			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
+		} else if node.isInstance {
+			for _, dep := range r.DependsOn {
+				g.AddEdge(Edge{
+					From: dep,
+					To:   node.Address,
+					Type: EdgeInstance,
+				})
+			}
+		}
+	}
+
+	for _, child := range m.ChildModules {
+		errs = append(errs, g.processStateModule(child))
+	}
+
+	return errors.Join(errs...)
 }
 
 // Discovers deleted nodes from Resource changes.
@@ -436,10 +466,9 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	// graph.discoverInstanceEdges(&plan)
-	// TODO discover edges for child nodes
 	// TODO discover deleted parent/child edges
 	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
+	graph.discoverInstanceEdges(&plan)
 
 	// make sure all parents exist
 

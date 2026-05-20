@@ -239,7 +239,7 @@ func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
 // Discovers deleted nodes from Resource changes.
 // Modules are not real resources so modules need to be inferred from their past children if missing.
 // ModuleAddress is full address of module.
-func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
+func (g *Graph) discoverDeletedResourceNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
 		if c.Change.Actions.Delete() && c.Index == nil {
 			g.Nodes[c.Address] = Node{
@@ -463,13 +463,14 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover Nodes
 	graph.discoverNodes(&root, ModuleConfig{})
-	graph.discoverDeletedNodes(&plan)
+	graph.discoverDeletedResourceNodes(&plan)
 	graph.discoverInstanceNodes(&plan)
 	graph.ensureModules()
 	// TODO discover deleted parent/child resource nodes
 
 	// Enrich nodes
 	// TODO discover MODULE state
+	// TODO discover LOOP node state
 	// TODO Move ProcessParams passes here
 	graph.discoverResourceChanges(&plan)
 

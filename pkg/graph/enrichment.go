@@ -33,8 +33,6 @@ func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 		}
 
 		// TODO handle moving with PreviousAddress
-		// TODO process change and store only before/after values
-		// with stripped secrets
 		changes, err := stripChange(c.Change)
 
 		if err != nil {

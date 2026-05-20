@@ -160,11 +160,10 @@ func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 }
 
 // Discovers child nodes for loop nodes
-func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
-	var errs []error
-
+func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
 		if c.Index != nil {
+			// this node is instance node, as it links to its count/for_each index
 			var name string
 			switch v := c.Index.(type) {
 			case float64:
@@ -175,26 +174,32 @@ func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
 			}
 
 			parent := tfJoin(c.ModuleAddress, c.Type, c.Name)
+			g.Nodes[c.Address] = Node{
+				Kind:       ResourceNode,
+				Name:       name,
+				Mode:       c.Mode,
+				Type:       c.Type,
+				Address:    c.Address,
+				Parent:     parent,
+				isInstance: true,
+				Parameters: []string{},
+			}
 
-			if _, ok := g.Nodes[parent]; ok {
-				g.Nodes[c.Address] = Node{
-					Kind:       ResourceNode,
-					Name:       name,
+			if _, ok := g.Nodes[parent]; !ok {
+				// TODO: parent does not exist, so whole loop node was
+				g.Nodes[parent] = Node{
+					Kind:       LoopResourceNode,
+					Name:       c.Name,
 					Mode:       c.Mode,
 					Type:       c.Type,
-					Address:    c.Address,
-					Parent:     parent,
-					isInstance: true,
+					Address:    parent,
+					Parent:     c.ModuleAddress,
 					Parameters: []string{},
 				}
-			} else {
-				errs = append(errs, fmt.Errorf("Parent not found for child loop: %s", c.Address))
 			}
 
 		}
 	}
-
-	return errors.Join(errs...)
 }
 
 func (g *Graph) discoverInstanceEdges(p *tfjson.Plan) error {
@@ -232,11 +237,11 @@ func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
 }
 
 // Discovers deleted nodes from Resource changes.
-// Modules are not real resources so modules need to be inferred if missing.
+// Modules are not real resources so modules need to be inferred from their past children if missing.
 // ModuleAddress is full address of module.
 func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 	for _, c := range p.ResourceChanges {
-		if c.Change.Actions.Delete() {
+		if c.Change.Actions.Delete() && c.Index == nil {
 			g.Nodes[c.Address] = Node{
 				Kind:    ResourceNode,
 				Name:    c.Name,
@@ -244,30 +249,6 @@ func (g *Graph) discoverDeletedNodes(p *tfjson.Plan) {
 				Mode:    c.Mode,
 				Address: c.Address,
 				Parent:  c.ModuleAddress,
-			}
-
-			currentModule := c.ModuleAddress
-
-			for currentModule != "" {
-				if _, ok := g.Nodes[currentModule]; ok {
-					break
-				}
-
-				name, parent, err := getModuleParts(currentModule)
-
-				if err != nil {
-					// TODO handle err
-					break
-				}
-
-				g.Nodes[currentModule] = Node{
-					Kind:    ModuleNode,
-					Name:    name,
-					Address: currentModule,
-					Parent:  parent,
-				}
-
-				currentModule = parent
 			}
 		}
 	}
@@ -394,6 +375,33 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	}
 }
 
+func (g *Graph) ensureModules() {
+	for _, node := range g.Nodes {
+		current := node.Parent
+		if node.isInstance {
+			continue
+		}
+		for current != "" {
+			if _, ok := g.Nodes[current]; ok {
+				break
+			}
+			name, parent, err := getModuleParts(current)
+
+			if err != nil {
+				break
+			}
+
+			g.Nodes[current] = Node{
+				Kind:    ModuleNode,
+				Name:    name,
+				Address: current,
+				Parent:  parent,
+			}
+			current = parent
+		}
+	}
+}
+
 // Safely add edge with deduplication
 func (g *Graph) AddEdge(e Edge) error {
 	to, okTo := g.Nodes[e.To]
@@ -457,6 +465,7 @@ func New(r io.Reader) (*Graph, error) {
 	graph.discoverNodes(&root, ModuleConfig{})
 	graph.discoverDeletedNodes(&plan)
 	graph.discoverInstanceNodes(&plan)
+	graph.ensureModules()
 	// TODO discover deleted parent/child resource nodes
 
 	// Enrich nodes

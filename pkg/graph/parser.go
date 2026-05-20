@@ -1,5 +1,6 @@
 // TODO dynamic
 // TODO edge attributes to have granular dependency shown
+// TODO drift
 package graph
 
 import (
@@ -14,10 +15,13 @@ import (
 type NodeKind string
 
 const (
-	ResourceNode NodeKind = "resource"
-	ModuleNode   NodeKind = "module"
-	VariableNode NodeKind = "variable"
-	OutputNode   NodeKind = "output"
+	ResourceNode     NodeKind = "resource"
+	DataNode         NodeKind = "data"
+	LoopResourceNode NodeKind = "resource_loop"
+	ModuleNode       NodeKind = "module"
+	LoopModuleNode   NodeKind = "module_loop"
+	VariableNode     NodeKind = "variable"
+	OutputNode       NodeKind = "output"
 )
 
 type ResourceState string
@@ -99,8 +103,13 @@ func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	for _, r := range mc.Module.Resources {
 		absoluteAddress := tfJoin(cfg.Address, r.Address)
 
+		kind := ResourceNode
+		if r.CountExpression != nil || r.ForEachExpression != nil {
+			kind = LoopResourceNode
+		}
+
 		g.Nodes[absoluteAddress] = Node{
-			Kind:       ResourceNode,
+			Kind:       kind,
 			Name:       r.Name,
 			Type:       r.Type,
 			Mode:       r.Mode,
@@ -146,6 +155,43 @@ func (g *Graph) discoverNodes(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			Parent:  cfg.Address,
 		})
 	}
+}
+
+// Discovers child nodes for loop nodes
+func (g *Graph) discoverInstanceNodes(p *tfjson.Plan) error {
+	var errs []error
+
+	for _, c := range p.ResourceChanges {
+		if c.Index != nil {
+			var name string
+			switch v := c.Index.(type) {
+			case float64:
+				// FOR SOME REASON it is float not int
+				name = fmt.Sprintf("%s[%d]", c.Name, int(v))
+			case string:
+				name = fmt.Sprintf("%s[\"%s\"]", c.Name, v)
+			}
+
+			parent := tfJoin(c.ModuleAddress, c.Type, c.Name)
+
+			if _, ok := g.Nodes[parent]; ok {
+				g.Nodes[c.Address] = Node{
+					Kind:       ResourceNode,
+					Name:       name,
+					Mode:       c.Mode,
+					Type:       c.Type,
+					Address:    c.Address,
+					Parent:     parent,
+					Parameters: []string{},
+				}
+			} else {
+				errs = append(errs, fmt.Errorf("Parent not found for child loop: %s", c.Address))
+			}
+
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // Discovers deleted nodes from Resource changes.
@@ -212,6 +258,7 @@ func (g *Graph) processStateModule(m *tfjson.StateModule) error {
 				g.AddEdge(Edge{
 					From: dep,
 					To:   node.Address,
+					Type: EdgeTransitive,
 				})
 			}
 		}
@@ -233,6 +280,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, from),
 				To:   absoluteAddress,
+				Type: EdgeDirect,
 			})
 		})
 
@@ -241,6 +289,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, dep),
 				To:   absoluteAddress,
+				Type: EdgeDirect,
 			})
 		}
 	}
@@ -251,6 +300,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		g.AddEdge(Edge{
 			From: tfJoin(cfg.Parent, from),
 			To:   tfJoin(cfg.Address, "var", to),
+			Type: EdgeDirect,
 		})
 	})
 
@@ -264,6 +314,7 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, from),
 				To:   fullname,
+				Type: EdgeDirect,
 			})
 		})
 	}
@@ -336,14 +387,16 @@ func New(r io.Reader) (*Graph, error) {
 	}
 
 	// Discover Nodes
-	graph.discoverNodes(&root, ModuleConfig{})
 	// TODO discover parent nodes for COUNT/FOR_EACH (parent nodes from config, individual in changes)
-	// TODO discover child nodes for COUNT/FOR_EACH
+	graph.discoverNodes(&root, ModuleConfig{})
 	graph.discoverDeletedNodes(&plan)
+
+	graph.discoverInstanceNodes(&plan)
 	// TODO discover deleted parent/child resource nodes
 
 	// Enrich nodes
 	// TODO discover MODULE state
+	// TODO Move ProcessParams passes here
 	graph.discoverResourceChanges(&plan)
 
 	// Discover edges

@@ -112,7 +112,7 @@ func TestGreenYellowRed(t *testing.T) {
 func TestSimpleDependencies(t *testing.T) {
 	got := setup(t, "03-simple-dependencies/plan.json")
 
-	expectedEdges, gotEdges := 2,len(got.Edges)
+	expectedEdges, gotEdges := 2, len(got.Edges)
 	if gotEdges != expectedEdges {
 		t.Errorf("Expected %v edges, got %v", expectedEdges, gotEdges)
 	}
@@ -240,6 +240,35 @@ func TestDeleted(t *testing.T) {
 	expectEdge(t, got, "tfcoremock_simple_resource.gray", "tfcoremock_simple_resource.red2", "deleted explicit edge")
 }
 
+func TestCount(t *testing.T) {
+	got := setup(t, "12-create-count/plan.json")
+
+	expectNode(t, got, "counted", "tfcoremock_simple_resource.counted", "parent node")
+	expectNode(t, got, "dep", "tfcoremock_simple_resource.dep", "dependant")
+
+	expectNode(t, got, "counted[0]", "tfcoremock_simple_resource.counted[0]", "child node")
+	expectNode(t, got, "counted[1]", "tfcoremock_simple_resource.counted[1]", "child node")
+	expectNode(t, got, "counted[2]", "tfcoremock_simple_resource.counted[2]", "child node")
+
+	expectParent(t, got, "tfcoremock_simple_resource.counted[0]", "tfcoremock_simple_resource.counted", "child node parent")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[1]", "tfcoremock_simple_resource.counted", "child node parent")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[2]", "tfcoremock_simple_resource.counted", "child node parent")
+}
+
+func TestForEach(t *testing.T) {
+	got := setup(t, "13-create-foreach/plan.json")
+
+	expectNode(t, got, "counted", "tfcoremock_simple_resource.counted", "parent node")
+	expectContainer(t, got, "tfcoremock_simple_resource.counted", "parent node is container")
+	expectNode(t, got, "dep", "tfcoremock_simple_resource.dep", "dependant")
+
+	expectNode(t, got, "counted[\"one\"]", "tfcoremock_simple_resource.counted[\"one\"]", "child node")
+	expectNode(t, got, "counted[\"two\"]", "tfcoremock_simple_resource.counted[\"two\"]", "child node")
+
+	expectParent(t, got, "tfcoremock_simple_resource.counted[\"one\"]", "tfcoremock_simple_resource.counted", "child node parent")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[\"two\"]", "tfcoremock_simple_resource.counted", "child node parent")
+}
+
 func setup(t *testing.T, planPath string) *graph.Graph {
 	t.Helper()
 	file, err := os.Open(planPath)
@@ -271,6 +300,33 @@ func expectNode(t *testing.T, g *graph.Graph, name, address, context string) {
 
 	if node.Address != address {
 		t.Errorf("[%v]:: parsing does not yield proper address, got '%v', expected '%v'", context, node.Address, address)
+	}
+}
+
+func expectParent(t *testing.T, g *graph.Graph, child, parent, context string) {
+	t.Helper()
+	node, ok := g.Nodes[child]
+
+	if !ok {
+		t.Errorf("[%v]:: %v not found", context, child)
+	}
+
+	if node.Parent != parent {
+		t.Errorf("[%v]:: parent for %v not found, expected %v", context, child, parent)
+	}
+
+}
+
+func expectContainer(t *testing.T, g *graph.Graph, addr, context string) {
+	t.Helper()
+	node, ok := g.Nodes[addr]
+
+	if !ok {
+		t.Errorf("[%v]:: %v not found", context, addr)
+	}
+
+	if node.Kind != graph.LoopResourceNode {
+		t.Errorf("[%v]:: %v is not container type", context, addr)
 	}
 }
 

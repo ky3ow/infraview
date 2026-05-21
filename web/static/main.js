@@ -32,6 +32,13 @@ const icons = {
   <path d="M0 0h24v24H0z" fill="none" />
   <path fill="currentColor" d="M5.616 20q-.691 0-1.153-.462T4 18.384V5.616q0-.691.463-1.153T5.616 4h12.769q.69 0 1.153.463T20 5.616V6.5q0 .214-.143.357T19.5 7t-.357-.143T19 6.5v-.885q0-.23-.192-.423T18.384 5H5.616q-.231 0-.424.192T5 5.616v12.769q0 .23.192.423t.423.192h12.77q.23 0 .423-.192t.192-.423V17.5q0-.213.143-.357T19.5 17t.357.143t.143.357v.885q0 .69-.462 1.152T18.384 20zm13.463-7.5H9.885q-.214 0-.357-.143q-.144-.143-.144-.357t.144-.357t.357-.143h9.194l-2.721-2.765q-.14-.14-.144-.332q-.002-.191.144-.337q.14-.141.344-.141t.344.14l3.388 3.37q.131.13.184.267t.053.298t-.053.298t-.184.268l-3.388 3.388q-.14.14-.341.133t-.347-.153q-.14-.14-.14-.334t.14-.335z" />
 `
+	},
+	readonly: {
+		viewBox: "0 0 24 24",
+		body: `
+  <path d="M0 0h24v24H0z" fill="none" />
+  <path fill="currentColor" d="M6 22q-.825 0-1.412-.587T4 20V10q0-.825.588-1.412T6 8h1V6q0-2.075 1.463-3.537T12 1t3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.587 1.413T18 22zm0-2h12V10H6zm7.413-3.588Q14 15.826 14 15t-.587-1.412T12 13t-1.412.588T10 15t.588 1.413T12 17t1.413-.587M9 8h6V6q0-1.25-.875-2.125T12 3t-2.125.875T9 6zM6 20V10z" />
+`
 	}
 }
 
@@ -62,12 +69,16 @@ function resourceCardImage(node) {
 	const name = escapeSvgText(node.name || node.address);
 	const type = escapeSvgText(node.type || "");
 	const icon = icons[node.type] || icons.default_resource;
+	const readonlyIcon = icons.readonly;
 	const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
 <rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" rx="8" ry="8" stroke="#d0d5dd"/>
 <svg xmlns="http://www.w3.org/2000/svg" x="15" y="10" width="62" height="${RESOURCE_CARD_HEIGHT - 20}" viewBox="${icon.viewBox}">
   ${icon.body}
 </svg>
+${node.mode == "data" ? `<svg xmlns="http://www.w3.org/2000/svg" x="62" y="30" width="30" heigth="30" viewBox="${readonlyIcon.viewBox}">
+${readonlyIcon.body}
+</svg>` : ""}
 <line x1="92" y1="0" x2="92" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/>
 <line x1="92" y1="48" x2="${RESOURCE_CARD_WIDTH}" y2="48" stroke="#eaecf0"/>
 <text x="102" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text>
@@ -115,6 +126,7 @@ for (const [id, n] of Object.entries(graph.nodes)) {
 			name: n.name,
 			type: n.type,
 			parent: n.parent,
+			mode: n.mode,
 			state: state,
 			stateColor: stateColors[state] || "transparent",
 			cardImage: getImage(n),
@@ -146,7 +158,7 @@ const cy = cytoscape({
 			selector: "node",
 			style: {
 				label: "data(label)",
-				shape: "rectangle",
+				shape: "round-rectangle",
 				"background-color": "#ccc"
 			}
 		},
@@ -164,6 +176,15 @@ const cy = cytoscape({
 				"underlay-padding": 0,
 				"underlay-color": "data(stateColor)",
 				"underlay-opacity": 0,
+			}
+		},
+		{
+			selector: 'node[mode="data"]',
+			style: {
+				"border-color": "#00b4d8",
+				"border-cap": "round",
+				"border-opacity": 1,
+				"border-width": 3,
 			}
 		},
 		{

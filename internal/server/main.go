@@ -186,6 +186,10 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 						},
 					},
 					{
+						SHA: "09",
+						Status: "applied",
+					},
+					{
 						SHA:    "1a9e6b42",
 						Status: "failed",
 						Changes: revisionChangeOverview{
@@ -252,6 +256,7 @@ func getGraph(namespace, revision string) (*graph.Graph, error) {
 		"05": "test/graph/05-module-vars/plan.json",
 		"07": "test/graph/07-module-outputs/plan.json",
 		"08": "test/graph/08-complex-vars/plan.json",
+		"09": "test/graph/09-data-resources/plan.json",
 		"10": "test/graph/10-module-deletions/plan.json",
 	}
 

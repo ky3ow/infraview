@@ -175,10 +175,34 @@ body {
 }
 
 .revision-status {
+  position: relative;
   width: 0.6rem;
   height: 0.6rem;
   flex: 0 0 0.6rem;
   border-radius: 50%;
+}
+
+.revision-status::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  content: attr(data-status);
+  pointer-events: none;
+  opacity: 0;
+  background: #1f2933;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: opacity 0.12s;
+}
+
+.revision-status:hover::after,
+.revision-status:focus-visible::after {
+  opacity: 1;
 }
 
 .revision-status-applied {

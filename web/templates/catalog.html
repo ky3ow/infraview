@@ -17,7 +17,7 @@
         <li class="revision-item">
           <div class="revision-main">
             <div class="revision-identity">
-              <span class="revision-status revision-status-{{.Status}}" title="{{.Status}}" aria-label="{{.Status}}"></span>
+              <span class="revision-status revision-status-{{.Status}}" data-status="{{.Status}}" aria-label="{{.Status}}"></span>
               <code>{{.SHA}}</code>
               {{if .Branch}}<span class="revision-branch">{{.Branch}}</span>{{end}}
             </div>

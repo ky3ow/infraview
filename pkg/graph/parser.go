@@ -504,7 +504,7 @@ func New(r io.Reader) (*Graph, error) {
 	// Enrich nodes
 	// TODO Move ProcessParams passes here
 	graph.discoverResourceChanges(&plan)
-	graph.discoverParentState() // TODO test this
+	graph.discoverParentState()
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})

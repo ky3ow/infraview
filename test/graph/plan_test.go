@@ -283,6 +283,7 @@ func TestDeleteCount(t *testing.T) {
 
 	expectNode(t, got, "counted", "tfcoremock_simple_resource.counted", "deleted parent node")
 	expectContainer(t, got, "tfcoremock_simple_resource.counted", "deleted parent is container")
+	expectState(t, got, "tfcoremock_simple_resource.counted", graph.StateDelete, "fully deleted container")
 
 	expectNode(t, got, "counted[0]", "tfcoremock_simple_resource.counted[0]", "deleted child")
 	expectNode(t, got, "counted[1]", "tfcoremock_simple_resource.counted[1]", "deleted child")
@@ -296,6 +297,7 @@ func TestDeleteCount(t *testing.T) {
 
 	expectNode(t, got, "plus", "tfcoremock_simple_resource.plus", "partial delete parent")
 	expectContainer(t, got, "tfcoremock_simple_resource.plus", "partial parent is container")
+	expectState(t, got, "tfcoremock_simple_resource.plus", graph.StateModify, "partially deleted container")
 
 	expectNode(t, got, "plus[0]", "tfcoremock_simple_resource.plus[0]", "kept instance")
 	expectState(t, got, "tfcoremock_simple_resource.plus[0]", graph.StateNoop, "kept instance state")

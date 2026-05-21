@@ -148,6 +148,7 @@ for (const edge of graph.edges) {
 
 const cy = cytoscape({
 	container: document.getElementById("graph"),
+	wheelSensitivity: 0.3,
 	elements: {
 		nodes: nodes,
 		edges: edges,

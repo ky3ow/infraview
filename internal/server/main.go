@@ -159,20 +159,14 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encoded, err := json.Marshal(graphData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	data := struct {
 		Title      string
 		ActivePage string
-		Graph      template.JS
+		Graph      graph.Graph
 	}{
 		Title:      "Infraview - Graph",
 		ActivePage: "graph",
-		Graph:      template.JS(encoded),
+		Graph:      *graphData,
 	}
 
 	if err := s.graphTmpl.ExecuteTemplate(w, "layout", data); err != nil {

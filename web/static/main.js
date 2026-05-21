@@ -3,13 +3,13 @@ import { html, render } from 'https://unpkg.com/lighterhtml?module';
 const icons = {
 	default: {
 		viewBox: "31.4 0 449.1 512",
-		body: '<path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/>'
+		body: `<path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/>`
 	},
 }
 
-const cont = document.getElementById("graph");
 const sidebar = document.getElementById("node-details-sidebar");
-const graph = JSON.parse(cont.dataset.config);
+
+const graph = JSON.parse(document.getElementById("initial-graph").text);
 const RESOURCE_CARD_WIDTH = 340;
 const RESOURCE_CARD_HEIGHT = 96;
 const stateColors = {
@@ -48,10 +48,10 @@ function resourceCardImage(node) {
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-const elements = [];
+const nodes = [];
 for (const [id, n] of Object.entries(graph.nodes)) {
 	const state = n.state || "noop";
-	elements.push({
+	nodes.push({
 		data: {
 			id: id,
 			label: id,
@@ -67,7 +67,9 @@ for (const [id, n] of Object.entries(graph.nodes)) {
 
 const cy = cytoscape({
 	container: document.getElementById("graph"),
-	elements: elements,
+	elements: {
+		nodes: nodes,
+	},
 	layout: { name: "breadthfirst", directed: true },
 	style: [
 		{

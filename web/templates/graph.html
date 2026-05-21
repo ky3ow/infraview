@@ -1,5 +1,6 @@
 {{define "head"}}
 <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+<script id="initial-graph" type="application/json">{{.Graph}}</script>
 {{end}}
 
 {{define "content"}}
@@ -12,7 +13,7 @@
     </div>
   </aside>
   <div class="graph-container">
-    <div id="graph" data-config='{{.Graph}}'></div>
+    <div id="graph"></div>
     <div id="node-details-sidebar"></div>
   </div>
 </div>

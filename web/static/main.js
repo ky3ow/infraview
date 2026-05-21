@@ -29,7 +29,12 @@ function escapeSvgText(value) {
 function resourceCardImage(node) {
 	const name = escapeSvgText(node.name || node.address);
 	const type = escapeSvgText(node.type || "");
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}"><rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd"/><line x1="72" y1="0" x2="72" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/><line x1="72" y1="48" x2="${RESOURCE_CARD_WIDTH}" y2="48" stroke="#eaecf0"/><text x="92" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text><text x="92" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#667085">${type}</text></svg>`;
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
+<rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd"/><line x1="72" y1="0" x2="72" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/>
+<line x1="72" y1="48" x2="${RESOURCE_CARD_WIDTH}" y2="48" stroke="#eaecf0"/>
+<text x="92" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text>
+<text x="92" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#667085">${type}</text>
+</svg>`;
 
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -74,9 +79,9 @@ const cy = cytoscape({
 				"background-height": RESOURCE_CARD_HEIGHT,
 				"background-opacity": 1,
 				"background-color": "transparent",
-				"border-width": 2,
-				"border-color": "data(stateColor)",
-				"border-opacity": 0,
+				"underlay-padding": 2,
+				"underlay-color": "data(stateColor)",
+				"underlay-opacity": 0,
 			}
 		},
 	],
@@ -92,8 +97,8 @@ setInterval(() => {
 		nodes.stop();
 		nodes.animate({
 			style: {
-				"border-width": pulseOn ? 2 : 1,
-				"border-opacity": pulseOn ? 1 : 0.35,
+				"underlay-padding": pulseOn ? 3 : 1,
+				"underlay-opacity": pulseOn ? 1 : 0.35,
 			},
 			duration: 700,
 		});

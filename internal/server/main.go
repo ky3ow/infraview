@@ -121,6 +121,55 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 							Deleted: 0,
 						},
 					},
+					{
+						SHA:    "2",
+						Branch: "13-create-foreach",
+						Status: "applied",
+						Changes: revisionChangeOverview{
+							Created: 0,
+							Updated: 0,
+							Deleted: 0,
+						},
+					},
+					{
+						SHA:    "3",
+						Branch: "14-delete-count",
+						Status: "applied",
+						Changes: revisionChangeOverview{
+							Created: 0,
+							Updated: 0,
+							Deleted: 0,
+						},
+					},
+				},
+			},
+			{
+				Name: "modules",
+				Revisions: []catalogRevision{
+					{
+						SHA: "05",
+						Branch: "05-module-vars",
+						Status: "applied",
+						Changes: revisionChangeOverview{},
+					},
+					{
+						SHA: "07",
+						Branch: "07-module-outputs",
+						Status: "applied",
+						Changes: revisionChangeOverview{},
+					},
+					{
+						SHA: "08",
+						Branch: "08-complex-vars",
+						Status: "applied",
+						Changes: revisionChangeOverview{},
+					},
+					{
+						SHA: "10",
+						Branch: "10-module-deletions",
+						Status: "applied",
+						Changes: revisionChangeOverview{},
+					},
 				},
 			},
 			{
@@ -198,6 +247,12 @@ func getGraph(namespace, revision string) (*graph.Graph, error) {
 		"c71b03de": "test/graph/02-simple-create-update-delete/plan.json",
 		"1a9e6b42": "test/graph/11-deletion-edges/plan.json",
 		"1": "test/graph/12-create-count/plan.json",
+		"2": "test/graph/13-create-foreach/plan.json",
+		"3": "test/graph/14-delete-count/plan.json",
+		"05": "test/graph/05-module-vars/plan.json",
+		"07": "test/graph/07-module-outputs/plan.json",
+		"08": "test/graph/08-complex-vars/plan.json",
+		"10": "test/graph/10-module-deletions/plan.json",
 	}
 
 	planPath, ok := plans[revision]

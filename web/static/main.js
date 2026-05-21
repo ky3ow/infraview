@@ -1,11 +1,18 @@
 import { html, render } from 'https://unpkg.com/lighterhtml?module';
 
 const icons = {
-	default_resource: {
+	module: {
 		viewBox: "31.4 0 449.1 512",
 		body: `<path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/>`
 	},
-	loop: {
+	default_resource: {
+		viewBox: "0 0 256 256",
+		body: `
+<path d="M0 0h256v256H0z" fill="none" />
+<path fill="currentColor" d="m222.72 67.9l-88-48.17a13.9 13.9 0 0 0-13.44 0l-88 48.18A14 14 0 0 0 26 80.18v95.64a14 14 0 0 0 7.28 12.27l88 48.18a13.92 13.92 0 0 0 13.44 0l88-48.18a14 14 0 0 0 7.28-12.27V80.18a14 14 0 0 0-7.28-12.28M127 30.25a2 2 0 0 1 1.92 0L212.51 76L128 122.24L43.49 76ZM39 177.57a2 2 0 0 1-1-1.75V86.66l84 46V223Zm177.92 0L134 223v-90.36l84-46v89.16a2 2 0 0 1-1 1.77Z" />
+`
+	},
+	resource_loop: {
 		viewBox: "0 0 21 21",
 		body: `
 <path d="M0 0h21v21H0z" fill="none" />
@@ -58,7 +65,7 @@ function resourceCardImage(node) {
 
 function loopImage(node) {
 	const name = escapeSvgText(node.name || node.address);
-	const icon = icons.loop
+	const icon = icons[node.kind]
 	const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
 <rect x="0" y="0" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd" stroke-width="5" />
@@ -76,6 +83,7 @@ function getImage(node) {
 	switch(node.kind) {
 		case "resource": return resourceCardImage(node);
 		case "resource_loop": return loopImage(node);
+		case "module": return loopImage(node);
 	}
 }
 
@@ -142,7 +150,7 @@ const cy = cytoscape({
 			}
 		},
 		{
-			selector: 'node[kind="resource_loop"]',
+			selector: 'node[kind="resource_loop"], node[kind="module"]',
 			style: {
 				"label": "",
 				"background-opacity": 0.4,
@@ -160,7 +168,7 @@ const cy = cytoscape({
 			},
 		},
 		{
-			selector: 'node[kind="resource_loop"][collapsed]',
+			selector: 'node[kind="resource_loop"][collapsed], node[kind="module"][collapsed]',
 			style: {
 				width: RESOURCE_CARD_WIDTH - 48
 			}

@@ -1,0 +1,446 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.2",
+  "variables": {
+    "a": {
+      "value": 0
+    }
+  },
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_simple_resource.plus[0]",
+          "mode": "managed",
+          "type": "tfcoremock_simple_resource",
+          "name": "plus",
+          "index": 0,
+          "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+          "schema_version": 0,
+          "values": {
+            "bool": null,
+            "float": null,
+            "id": "cc00cb4d-f0f7-5e6c-6d69-b74a1e34f315",
+            "integer": 0,
+            "number": null,
+            "string": null
+          },
+          "sensitive_values": {}
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "tfcoremock_simple_resource.counted[0]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "counted",
+      "index": 0,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "f9d75d22-9141-b045-94dd-03f141b18083",
+          "integer": 0,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_no_resource_config"
+    },
+    {
+      "address": "tfcoremock_simple_resource.counted[1]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "counted",
+      "index": 1,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "cfcfefb8-9490-28bf-c1b8-04ac7f0b370c",
+          "integer": 1,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_no_resource_config"
+    },
+    {
+      "address": "tfcoremock_simple_resource.counted[2]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "counted",
+      "index": 2,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "8a0bf4df-4c19-d08f-dbf7-73cea04b7ad8",
+          "integer": 2,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_no_resource_config"
+    },
+    {
+      "address": "tfcoremock_simple_resource.dep",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "dep",
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "338d6ee1-1231-9745-8fe8-4ecad432cd7b",
+          "integer": 0,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_no_resource_config"
+    },
+    {
+      "address": "tfcoremock_simple_resource.plus[0]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "plus",
+      "index": 0,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "cc00cb4d-f0f7-5e6c-6d69-b74a1e34f315",
+          "integer": 0,
+          "number": null,
+          "string": null
+        },
+        "after": {
+          "bool": null,
+          "float": null,
+          "id": "cc00cb4d-f0f7-5e6c-6d69-b74a1e34f315",
+          "integer": 0,
+          "number": null,
+          "string": null
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "tfcoremock_simple_resource.plus[1]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "plus",
+      "index": 1,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "bff48f05-4204-e368-fe80-438f007f9dce",
+          "integer": 1,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_count_index"
+    },
+    {
+      "address": "tfcoremock_simple_resource.plus[2]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "plus",
+      "index": 2,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "af8422c2-599f-6bdf-90d4-4b7a37f10a38",
+          "integer": 2,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_count_index"
+    },
+    {
+      "address": "tfcoremock_simple_resource.plus[3]",
+      "mode": "managed",
+      "type": "tfcoremock_simple_resource",
+      "name": "plus",
+      "index": 3,
+      "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bool": null,
+          "float": null,
+          "id": "1f8f9828-fa1e-4d6c-c2d3-89fa563afe03",
+          "integer": 3,
+          "number": null,
+          "string": null
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      },
+      "action_reason": "delete_because_count_index"
+    }
+  ],
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.15.2",
+    "values": {
+      "root_module": {
+        "resources": [
+          {
+            "address": "tfcoremock_simple_resource.counted[0]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "counted",
+            "index": 0,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "f9d75d22-9141-b045-94dd-03f141b18083",
+              "integer": 0,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.counted[1]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "counted",
+            "index": 1,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "cfcfefb8-9490-28bf-c1b8-04ac7f0b370c",
+              "integer": 1,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.counted[2]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "counted",
+            "index": 2,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "8a0bf4df-4c19-d08f-dbf7-73cea04b7ad8",
+              "integer": 2,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.dep",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "dep",
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "338d6ee1-1231-9745-8fe8-4ecad432cd7b",
+              "integer": 0,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {},
+            "depends_on": [
+              "tfcoremock_simple_resource.counted"
+            ]
+          },
+          {
+            "address": "tfcoremock_simple_resource.plus[0]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "plus",
+            "index": 0,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "cc00cb4d-f0f7-5e6c-6d69-b74a1e34f315",
+              "integer": 0,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.plus[1]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "plus",
+            "index": 1,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "bff48f05-4204-e368-fe80-438f007f9dce",
+              "integer": 1,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.plus[2]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "plus",
+            "index": 2,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "af8422c2-599f-6bdf-90d4-4b7a37f10a38",
+              "integer": 2,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          },
+          {
+            "address": "tfcoremock_simple_resource.plus[3]",
+            "mode": "managed",
+            "type": "tfcoremock_simple_resource",
+            "name": "plus",
+            "index": 3,
+            "provider_name": "registry.terraform.io/hashicorp/tfcoremock",
+            "schema_version": 0,
+            "values": {
+              "bool": null,
+              "float": null,
+              "id": "1f8f9828-fa1e-4d6c-c2d3-89fa563afe03",
+              "integer": 3,
+              "number": null,
+              "string": null
+            },
+            "sensitive_values": {}
+          }
+        ]
+      }
+    }
+  },
+  "configuration": {
+    "provider_config": {
+      "tfcoremock": {
+        "name": "tfcoremock",
+        "full_name": "registry.terraform.io/hashicorp/tfcoremock",
+        "version_constraint": "0.1.2"
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "tfcoremock_simple_resource.plus",
+          "mode": "managed",
+          "type": "tfcoremock_simple_resource",
+          "name": "plus",
+          "provider_config_key": "tfcoremock",
+          "expressions": {
+            "integer": {
+              "references": [
+                "count.index"
+              ]
+            }
+          },
+          "schema_version": 0,
+          "count_expression": {
+            "references": [
+              "var.a"
+            ]
+          }
+        }
+      ],
+      "variables": {
+        "a": {
+          "default": 0
+        }
+      }
+    }
+  },
+  "timestamp": "2026-05-21T00:35:17Z",
+  "applyable": true,
+  "complete": true,
+  "errored": false
+}

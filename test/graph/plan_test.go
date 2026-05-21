@@ -278,6 +278,40 @@ func TestForEach(t *testing.T) {
 	expectEdge(t, got, "tfcoremock_simple_resource.counted", "tfcoremock_simple_resource.dep", "dependency to parent")
 }
 
+func TestDeleteCount(t *testing.T) {
+	got := setup(t, "14-delete-count/plan.json")
+
+	expectNode(t, got, "counted", "tfcoremock_simple_resource.counted", "deleted parent node")
+	expectContainer(t, got, "tfcoremock_simple_resource.counted", "deleted parent is container")
+
+	expectNode(t, got, "counted[0]", "tfcoremock_simple_resource.counted[0]", "deleted child")
+	expectNode(t, got, "counted[1]", "tfcoremock_simple_resource.counted[1]", "deleted child")
+	expectNode(t, got, "counted[2]", "tfcoremock_simple_resource.counted[2]", "deleted child")
+	expectState(t, got, "tfcoremock_simple_resource.counted[0]", graph.StateDelete, "instance state")
+	expectState(t, got, "tfcoremock_simple_resource.counted[1]", graph.StateDelete, "instance state")
+	expectState(t, got, "tfcoremock_simple_resource.counted[2]", graph.StateDelete, "instance state")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[0]", "tfcoremock_simple_resource.counted", "child parent")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[1]", "tfcoremock_simple_resource.counted", "child parent")
+	expectParent(t, got, "tfcoremock_simple_resource.counted[2]", "tfcoremock_simple_resource.counted", "child parent")
+
+	expectNode(t, got, "plus", "tfcoremock_simple_resource.plus", "partial delete parent")
+	expectContainer(t, got, "tfcoremock_simple_resource.plus", "partial parent is container")
+
+	expectNode(t, got, "plus[0]", "tfcoremock_simple_resource.plus[0]", "kept instance")
+	expectState(t, got, "tfcoremock_simple_resource.plus[0]", graph.StateNoop, "kept instance state")
+	expectNode(t, got, "plus[1]", "tfcoremock_simple_resource.plus[1]", "deleted instance")
+	expectState(t, got, "tfcoremock_simple_resource.plus[1]", graph.StateDelete, "deleted instance state")
+	expectNode(t, got, "plus[2]", "tfcoremock_simple_resource.plus[2]", "deleted instance")
+	expectState(t, got, "tfcoremock_simple_resource.plus[2]", graph.StateDelete, "deleted instance state")
+	expectNode(t, got, "plus[3]", "tfcoremock_simple_resource.plus[3]", "deleted instance")
+	expectState(t, got, "tfcoremock_simple_resource.plus[3]", graph.StateDelete, "deleted instance state")
+
+	expectNode(t, got, "dep", "tfcoremock_simple_resource.dep", "deleted dependant")
+	expectState(t, got, "tfcoremock_simple_resource.dep", graph.StateDelete, "dep state")
+
+	expectEdge(t, got, "tfcoremock_simple_resource.counted", "tfcoremock_simple_resource.dep", "deleted container to deleted dep")
+}
+
 func setup(t *testing.T, planPath string) *graph.Graph {
 	t.Helper()
 	file, err := os.Open(planPath)
@@ -356,3 +390,16 @@ func expectEdge(t *testing.T, g *graph.Graph, a, b, context string) {
 		t.Errorf("[%v]:: edge '%v' -> '%v' not found", context, a, b)
 	}
 }
+
+func expectState(t *testing.T, g *graph.Graph, addr string, expected graph.ResourceState, context string) {
+	t.Helper()
+	node, ok := g.Nodes[addr]
+	if !ok {
+		t.Errorf("[%v]:: %v not found", context, addr)
+		return
+	}
+	if node.State != expected {
+		t.Errorf("[%v]:: expected state %v, got %v", context, expected, node.State)
+	}
+}
+

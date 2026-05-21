@@ -264,6 +264,36 @@ func (g *Graph) discoverDeletedResourceEdges(p *tfjson.Plan) error {
 	return err
 }
 
+func (g *Graph) discoverDeletedLoopEdges() {
+	for _, e := range g.Edges {
+		if e.Type != EdgeInstance {
+			continue
+		}
+
+		if to, ok := g.Nodes[e.To]; ok && to.isInstance && to.Parent != "" {
+			container := g.Nodes[to.Parent]
+			if container.Kind == LoopResourceNode && container.State == StateDelete {
+				g.AddEdge(Edge{
+					From: e.From,
+					To:   to.Parent,
+					Type: EdgeTransitive,
+				})
+			}
+		}
+
+		if from, ok := g.Nodes[e.From]; ok && from.isInstance && from.Parent != "" {
+			container := g.Nodes[from.Parent]
+			if container.Kind == LoopResourceNode && container.State == StateDelete {
+				g.AddEdge(Edge{
+					From: from.Parent,
+					To:   e.To,
+					Type: EdgeTransitive,
+				})
+			}
+		}
+	}
+}
+
 // Recursive helper to process prior state to find deleted edges with node check
 func (g *Graph) processStateModule(m *tfjson.StateModule) error {
 	var errs []error
@@ -271,7 +301,7 @@ func (g *Graph) processStateModule(m *tfjson.StateModule) error {
 		node, ok := g.Nodes[r.Address]
 		if !ok {
 			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
-		} else if node.State == StateDelete {
+		} else if node.State == StateDelete && !node.isInstance {
 			for _, dep := range r.DependsOn {
 				g.AddEdge(Edge{
 					From: dep,
@@ -465,8 +495,9 @@ func New(r io.Reader) (*Graph, error) {
 	graph.discoverNodes(&root, ModuleConfig{})
 	graph.discoverDeletedResourceNodes(&plan)
 	graph.discoverInstanceNodes(&plan)
+
+	// make sure all parents exist
 	graph.ensureModules()
-	// TODO discover deleted parent/child resource nodes
 
 	// Enrich nodes
 	// TODO discover MODULE state
@@ -476,11 +507,10 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	// TODO discover deleted parent/child edges
+	// TODO discover deleted parent edges
 	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
 	graph.discoverInstanceEdges(&plan)
-
-	// make sure all parents exist
+	graph.discoverDeletedLoopEdges()
 
 	return &graph, nil
 }

@@ -1,0 +1,9 @@
+{{define "header"}}
+<header class="header">
+  <div class="header-brand">Infraview</div>
+  <nav class="header-nav">
+    <a href="/" class="header-nav-link{{if eq .ActivePage "catalog"}} active{{end}}">Catalog</a>
+    <a href="/graph" class="header-nav-link{{if eq .ActivePage "graph"}} active{{end}}">Graph</a>
+  </nav>
+</header>
+{{end}}

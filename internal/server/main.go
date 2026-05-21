@@ -12,21 +12,50 @@ import (
 )
 
 type Server struct {
-	addr   string
-	mu     sync.RWMutex
-	states map[string]*graph.Graph
+	addr        string
+	mu          sync.RWMutex
+	states      map[string]*graph.Graph
+	catalogTmpl *template.Template
+	graphTmpl   *template.Template
+}
+
+func absPaths(paths []string) []string {
+	abs := make([]string, len(paths))
+	for i, p := range paths {
+		abs[i], _ = filepath.Abs(p)
+	}
+	return abs
 }
 
 func New(addr string) *Server {
-	return &Server{
+	s := &Server{
 		addr:   addr,
 		states: make(map[string]*graph.Graph),
 	}
+	s.loadTemplates()
+	return s
+}
+
+func (s *Server) loadTemplates() {
+	base := absPaths([]string{
+		"web/templates/partials/layout.html",
+		"web/templates/partials/header.html",
+	})
+
+	catalog := append([]string{}, base...)
+	catalog = append(catalog, absPaths([]string{"web/templates/catalog.html"})...)
+
+	graph := append([]string{}, base...)
+	graph = append(graph, absPaths([]string{"web/templates/graph.html"})...)
+
+	s.catalogTmpl = template.Must(template.ParseFiles(catalog...))
+	s.graphTmpl = template.Must(template.ParseFiles(graph...))
 }
 
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/", s.handleCatalog)
+	mux.HandleFunc("/graph", s.handleGraph)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("/api/v1/states", s.handlePlans)
@@ -35,19 +64,27 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.addr, mux)
 }
 
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	path, _ := filepath.Abs("web/templates/index.html")
-	tmpl, err := template.ParseFiles(path)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Title      string
+		ActivePage string
+	}{
+		Title:      "Infraview - Catalog",
+		ActivePage: "catalog",
 	}
 
+	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	graphData := s.states["latest"]
 
 	var encoded []byte
+	var err error
 	if graphData != nil {
 		encoded, err = json.Marshal(graphData)
 		if err != nil {
@@ -59,14 +96,16 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title string
-		Graph template.JS
+		Title      string
+		ActivePage string
+		Graph      template.JS
 	}{
-		Title: "Terraview",
-		Graph: template.JS(encoded),
+		Title:      "Infraview - Graph",
+		ActivePage: "graph",
+		Graph:      template.JS(encoded),
 	}
 
-	if err := tmpl.Execute(w, data); err != nil {
+	if err := s.graphTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

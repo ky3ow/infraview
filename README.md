@@ -26,14 +26,14 @@ go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 
 # Checklist
 
-- [ ] Treat special keywords while generating graph
-  - [ ] local. ?
+- [x] Treat special keywords while generating graph
+  - [ ] local. ? < not planned
   - [x] var. (edge)
   - [x] module. (edge + Parent thingy)
-  - [ ] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
-  - [ ] count. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
+  - [x] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
+  - [x] count. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
 - [x] module outputs
-- [ ] deletion - get node from `prior_state`
+- [x] deletion - get node from `prior_state`
 
 # Insiprations
 
@@ -235,6 +235,10 @@ go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 
 
 ## Food for thought
+
+### Need IR?
+
+Pre-process config, changes and prior_state in something simpler
 
 ### Configuration
 

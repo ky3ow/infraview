@@ -1,0 +1,23 @@
+{{define "head"}}
+<script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+{{end}}
+
+{{define "content"}}
+<div class="graph-layout">
+  <aside class="sidebar">
+    <div class="sidebar-content">
+      <div class="sidebar-placeholder">
+        <p>Filters</p>
+      </div>
+    </div>
+  </aside>
+  <div class="graph-container">
+    <div id="graph" data-config='{{.Graph}}'></div>
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script type="module" src="https://unpkg.com/lighterhtml?module"></script>
+<script type="module" src="/static/main.js"></script>
+{{end}}

@@ -93,6 +93,127 @@ body {
   color: #1a1a1a;
 }
 
+.catalog-search {
+  margin-bottom: 1.25rem;
+}
+
+.catalog-search input {
+  width: 100%;
+  max-width: 520px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font: inherit;
+  background: #fff;
+}
+
+.catalog-namespaces {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.catalog-namespace {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dcdfe3;
+  border-radius: 6px;
+}
+
+.namespace-header {
+  background: #e4e7eb;
+  border-bottom: 1px solid #dcdfe3;
+  padding: 0.8rem 1rem;
+}
+
+.namespace-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2f343a;
+}
+
+.revision-list {
+  display: grid;
+  list-style: none;
+}
+
+.revision-item {
+  padding: 0.9rem 1rem;
+}
+
+.revision-item + .revision-item {
+  border-top: 1px solid #e8e8e8;
+}
+
+.revision-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.revision-identity {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: #666;
+}
+
+.revision-identity code {
+  color: #1a1a1a;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.revision-branch {
+  padding: 0.15rem 0.4rem;
+  background: #e8f0fe;
+  border: 1px solid #c7d7f5;
+  border-radius: 3px;
+  color: #1a56a8;
+  font-size: 0.85rem;
+}
+
+.revision-status {
+  width: 0.6rem;
+  height: 0.6rem;
+  flex: 0 0 0.6rem;
+  border-radius: 50%;
+}
+
+.revision-status-applied {
+  background: #2ea043;
+}
+
+.revision-status-pending {
+  background: #d29922;
+}
+
+.revision-status-failed {
+  background: #cf222e;
+}
+
+.revision-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.revision-change-created {
+  color: #1e7a3a;
+}
+
+.revision-change-updated {
+  color: #9a6700;
+}
+
+.revision-change-deleted {
+  color: #b42318;
+}
+
 .graph-layout {
   display: flex;
   height: calc(100vh - 48px);

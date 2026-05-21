@@ -65,12 +65,72 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
+	type revisionChangeOverview struct {
+		Created int
+		Updated int
+		Deleted int
+	}
+
+	type catalogRevision struct {
+		SHA     string
+		Branch  string
+		Status  string
+		Changes revisionChangeOverview
+	}
+
+	type catalogNamespace struct {
+		Name      string
+		Revisions []catalogRevision
+	}
+
 	data := struct {
 		Title      string
 		ActivePage string
+		Namespaces []catalogNamespace
 	}{
 		Title:      "Infraview - Catalog",
 		ActivePage: "catalog",
+		Namespaces: []catalogNamespace{
+			{
+				Name: "production",
+				Revisions: []catalogRevision{
+					{
+						SHA:    "8f4c2a91",
+						Branch: "main",
+						Status: "applied",
+						Changes: revisionChangeOverview{
+							Created: 3,
+							Updated: 1,
+							Deleted: 0,
+						},
+					},
+				},
+			},
+			{
+				Name: "staging",
+				Revisions: []catalogRevision{
+					{
+						SHA:    "c71b03de",
+						Branch: "feature/db-resize",
+						Status: "pending",
+						Changes: revisionChangeOverview{
+							Created: 1,
+							Updated: 4,
+							Deleted: 0,
+						},
+					},
+					{
+						SHA:    "1a9e6b42",
+						Status: "failed",
+						Changes: revisionChangeOverview{
+							Created: 0,
+							Updated: 2,
+							Deleted: 5,
+						},
+					},
+				},
+			},
+		},
 	}
 
 	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {

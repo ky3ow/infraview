@@ -109,6 +109,21 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 			{
+				Name: "loops",
+				Revisions: []catalogRevision{
+					{
+						SHA:    "1",
+						Branch: "12-create-count",
+						Status: "applied",
+						Changes: revisionChangeOverview{
+							Created: 0,
+							Updated: 0,
+							Deleted: 0,
+						},
+					},
+				},
+			},
+			{
 				Name: "staging",
 				Revisions: []catalogRevision{
 					{
@@ -182,6 +197,7 @@ func getGraph(namespace, revision string) (*graph.Graph, error) {
 		"8f4c2a91": "test/graph/03-simple-dependencies/plan.json",
 		"c71b03de": "test/graph/02-simple-create-update-delete/plan.json",
 		"1a9e6b42": "test/graph/11-deletion-edges/plan.json",
+		"1": "test/graph/12-create-count/plan.json",
 	}
 
 	planPath, ok := plans[revision]

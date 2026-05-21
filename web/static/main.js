@@ -10,6 +10,7 @@ const icons = {
 const sidebar = document.getElementById("node-details-sidebar");
 
 const graph = JSON.parse(document.getElementById("initial-graph").text);
+console.log(graph)
 const RESOURCE_CARD_WIDTH = 340;
 const RESOURCE_CARD_HEIGHT = 96;
 const stateColors = {
@@ -48,6 +49,23 @@ function resourceCardImage(node) {
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+function loopImage(node) {
+	console.log("loop image called", node)
+	const name = escapeSvgText(node.name || node.address);
+	const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+<rect x="0" y="0" width="50" height="50" fill="#fff" stroke="#ffffee"/>
+</svg>`;
+	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function getImage(node) {
+	switch(node.kind) {
+		case "resource": return resourceCardImage(node);
+		case "resource_loop": return loopImage(node);
+	}
+}
+
 const nodes = [];
 for (const [id, n] of Object.entries(graph.nodes)) {
 	const state = n.state || "noop";
@@ -58,28 +76,45 @@ for (const [id, n] of Object.entries(graph.nodes)) {
 			kind: n.kind,
 			name: n.name,
 			type: n.type,
+			parent: n.parent,
 			state: state,
 			stateColor: stateColors[state] || "transparent",
-			cardImage: n.kind === "resource" ? resourceCardImage(n) : "",
+			cardImage: getImage(n),
 		},
 	});
+}
+
+const edges = [];
+for (const edge of graph.edges) {
+	edges.push({
+		data: {
+			id: `${edge.from}>${edge.to}`,
+			source: edge.from,
+			target: edge.to,
+			type: edge.type
+		},
+	})
 }
 
 const cy = cytoscape({
 	container: document.getElementById("graph"),
 	elements: {
 		nodes: nodes,
+		edges: edges,
 	},
 	layout: { name: "breadthfirst", directed: true },
 	style: [
 		{
 			selector: "node",
-			style: { label: "data(label)", "background-color": "#ccc" }
+			style: {
+				label: "data(label)",
+				shape: "rectangle",
+				"background-color": "#ccc"
+			}
 		},
 		{
 			selector: 'node[kind="resource"]',
 			style: {
-				shape: "rectangle",
 				width: RESOURCE_CARD_WIDTH,
 				height: RESOURCE_CARD_HEIGHT,
 				label: "",
@@ -92,6 +127,46 @@ const cy = cytoscape({
 				"underlay-color": "data(stateColor)",
 				"underlay-opacity": 0,
 			}
+		},
+		{
+			selector: 'node[kind="resource_loop"]',
+			style: {
+				"label": "",
+				"background-opacity": 0.4,
+				"border-width": 3,
+				"border-color": "#d0d5df",
+				"border-style": "dashed",
+				"padding": "24",
+				"background-image": "data(cardImage)",
+				"background-fit": "none",
+				"background-width": "100%",
+				"background-height": 50,
+				"background-position-y": "-50px",
+				"background-clip": "none",
+			},
+		},
+		{
+			selector: "edge",
+			style: {
+				"line-color": "#98a2b3",
+				"target-arrow-color": "#98a2b3",
+				"target-arrow-shape": "triangle",
+				"curve-style": "bezier",
+			},
+		},
+		{
+			selector: 'edge[type="transitive"]',
+			style: {
+				// display: "none",
+				"line-style": "dashed",
+				"opacity": 0.25,
+			},
+		},
+		{
+			selector: 'edge[type="instance"]',
+			style: {
+				display: "none",
+			},
 		},
 	],
 });

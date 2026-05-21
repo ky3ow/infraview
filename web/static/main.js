@@ -18,6 +18,20 @@ const icons = {
 <path d="M0 0h21v21H0z" fill="none" />
 <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 5.5l-2 10m-2-10l-2 10m-1-7h9m-10 4h9" />
 `
+	},
+	variable: {
+		viewBox: "0 0 20 20",
+		body: `
+  <path d="M0 0h20v20H0z" fill="none" />
+  <path fill="currentColor" d="M5.5 3A2.5 2.5 0 0 0 3 5.5v2.882c0 .493-.277.943-.715 1.167a.5.5 0 0 0 0 .902c.438.223.715.674.715 1.167V14.5A2.5 2.5 0 0 0 5.5 17a.5.5 0 0 0 0-1A1.5 1.5 0 0 1 4 14.5v-2.882c0-.615-.244-1.193-.662-1.618A2.3 2.3 0 0 0 4 8.382V5.5A1.5 1.5 0 0 1 5.5 4a.5.5 0 0 0 0-1m9 0A2.5 2.5 0 0 1 17 5.5v2.882c0 .493.277.943.715 1.167a.5.5 0 0 1 0 .902A1.31 1.31 0 0 0 17 11.618V14.5a2.5 2.5 0 0 1-2.5 2.5a.5.5 0 0 1 0-1a1.5 1.5 0 0 0 1.5-1.5v-2.882c0-.615.244-1.193.662-1.618A2.3 2.3 0 0 1 16 8.382V5.5A1.5 1.5 0 0 0 14.5 4a.5.5 0 0 1 0-1M7.907 6.21a.5.5 0 0 0-.814.58L9.386 10l-2.293 3.21a.5.5 0 0 0 .814.58L10 10.86l2.093 2.93a.5.5 0 0 0 .814-.58L10.614 10l2.293-3.21a.5.5 0 1 0-.814-.58L10 9.14z" />
+`
+	},
+	output: {
+		viewBox: "0 0 24 24",
+		body: `
+  <path d="M0 0h24v24H0z" fill="none" />
+  <path fill="currentColor" d="M5.616 20q-.691 0-1.153-.462T4 18.384V5.616q0-.691.463-1.153T5.616 4h12.769q.69 0 1.153.463T20 5.616V6.5q0 .214-.143.357T19.5 7t-.357-.143T19 6.5v-.885q0-.23-.192-.423T18.384 5H5.616q-.231 0-.424.192T5 5.616v12.769q0 .23.192.423t.423.192h12.77q.23 0 .423-.192t.192-.423V17.5q0-.213.143-.357T19.5 17t.357.143t.143.357v.885q0 .69-.462 1.152T18.384 20zm13.463-7.5H9.885q-.214 0-.357-.143q-.144-.143-.144-.357t.144-.357t.357-.143h9.194l-2.721-2.765q-.14-.14-.144-.332q-.002-.191.144-.337q.14-.141.344-.141t.344.14l3.388 3.37q.131.13.184.267t.053.298t-.053.298t-.184.268l-3.388 3.388q-.14.14-.341.133t-.347-.153q-.14-.14-.14-.334t.14-.335z" />
+`
 	}
 }
 
@@ -63,9 +77,9 @@ function resourceCardImage(node) {
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function loopImage(node) {
+function standardImage(node) {
 	const name = escapeSvgText(node.name || node.address);
-	const icon = icons[node.kind]
+	const icon = icons[node.kind] || icons.default_resource
 	const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
 <rect x="0" y="0" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd" stroke-width="5" />
@@ -82,8 +96,11 @@ function loopImage(node) {
 function getImage(node) {
 	switch(node.kind) {
 		case "resource": return resourceCardImage(node);
-		case "resource_loop": return loopImage(node);
-		case "module": return loopImage(node);
+		case "resource_loop":
+		case "module":
+		case "variable":
+		case "output":
+			return standardImage(node);
 	}
 }
 
@@ -147,6 +164,19 @@ const cy = cytoscape({
 				"underlay-padding": 0,
 				"underlay-color": "data(stateColor)",
 				"underlay-opacity": 0,
+			}
+		},
+		{
+			selector: 'node[kind="variable"],node[kind="output"]',
+			style: {
+				width: RESOURCE_CARD_WIDTH,
+				height: RESOURCE_CARD_HEIGHT,
+				label: "",
+				"background-image": "data(cardImage)",
+				"background-width": RESOURCE_CARD_WIDTH,
+				"background-height": RESOURCE_CARD_HEIGHT,
+				"background-opacity": 0,
+				"background-color": "transparent",
 			}
 		},
 		{

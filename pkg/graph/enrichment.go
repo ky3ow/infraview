@@ -1,8 +1,8 @@
 package graph
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -45,6 +45,33 @@ func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (g *Graph) discoverParentState() {
+	for addr, parent := range g.Nodes {
+		if parent.Kind != ModuleNode && parent.Kind != LoopResourceNode {
+			continue
+		}
+
+		var parentState ResourceState
+		allSame := true
+		for _, child := range g.Nodes {
+			if child.Parent == parent.Address {
+				if parentState == "" {
+					parentState = child.State
+				} else if parentState != child.State {
+					allSame = false
+				}
+			}
+		}
+		
+		if !allSame {
+			parentState = StateModify
+		}
+
+		parent.State = parentState
+		g.Nodes[addr] = parent
+	}
 }
 
 // Returns stripped out of sensitive fields after/before changes.
@@ -129,4 +156,3 @@ func processInputs(m *tfjson.ModuleCall) []string {
 	}
 	return parameters
 }
-

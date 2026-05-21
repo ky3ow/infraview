@@ -500,10 +500,9 @@ func New(r io.Reader) (*Graph, error) {
 	graph.ensureModules()
 
 	// Enrich nodes
-	// TODO discover MODULE state
-	// TODO discover LOOP node state
 	// TODO Move ProcessParams passes here
 	graph.discoverResourceChanges(&plan)
+	graph.discoverParentState()
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})

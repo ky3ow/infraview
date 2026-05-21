@@ -6,34 +6,9 @@
     <input type="search" name="q" placeholder="Search namespaces and revisions" aria-label="Search namespaces and revisions">
   </form>
 
-  <div class="catalog-namespaces">
+  <div id="catalog-namespaces" class="catalog-namespaces">
     {{range .Namespaces}}
-    <section class="catalog-namespace">
-      <header class="namespace-header">
-        <h2>{{.Name}}</h2>
-      </header>
-      {{$namespace := .Name}}
-      <ul class="revision-list">
-        {{range .Revisions}}
-        <li class="revision-item">
-          <a class="revision-link" href="/graph/{{$namespace}}/{{.SHA}}">
-            <div class="revision-main">
-              <div class="revision-identity">
-                <span class="revision-status revision-status-{{.Status}}" data-status="{{.Status}}" aria-label="{{.Status}}"></span>
-                <code>{{.SHA}}</code>
-                {{if .Branch}}<span class="revision-branch">{{.Branch}}</span>{{end}}
-              </div>
-            </div>
-            <div class="revision-changes" aria-label="Change overview">
-              <span class="revision-change-created" title="Created">+{{.Changes.Created}}</span>
-              <span class="revision-change-updated" title="Updated">~{{.Changes.Updated}}</span>
-              <span class="revision-change-deleted" title="Deleted">-{{.Changes.Deleted}}</span>
-            </div>
-          </a>
-        </li>
-        {{end}}
-      </ul>
-    </section>
+      {{template "catalog-namespace" .}}
     {{end}}
   </div>
 </div>

@@ -43,7 +43,10 @@ func (s *Server) loadTemplates() {
 	})
 
 	catalog := append([]string{}, base...)
-	catalog = append(catalog, absPaths([]string{"web/templates/catalog.html"})...)
+	catalog = append(catalog, absPaths([]string{
+		"web/templates/catalog.html",
+		"web/templates/partials/catalog_namespace.html",
+	})...)
 
 	graph := append([]string{}, base...)
 	graph = append(graph, absPaths([]string{"web/templates/graph.html"})...)

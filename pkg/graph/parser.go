@@ -507,7 +507,6 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	// TODO discover deleted parent edges
 	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
 	graph.discoverInstanceEdges(&plan)
 	graph.discoverDeletedLoopEdges()

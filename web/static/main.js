@@ -269,18 +269,7 @@ function closeNodeDetails() {
 	sidebar.classList.remove("is-open");
 }
 
-cy.on("tap", "node", (event) => {
-	const id = event.target.id();
-	renderNodeDetails(graph.nodes[id]);
-});
-
-cy.on("tap", (event) => {
-	if (event.target === cy) {
-		closeNodeDetails();
-	}
-});
-
-cy.on("dbltap", 'node[kind="resource_loop"]', (event) => {
+function collapseHandler(event) {
 	const parent = event.target;
 	const collapsed = parent.data("collapsed") === true;
 	const descendants = parent.descendants();
@@ -295,5 +284,18 @@ cy.on("dbltap", 'node[kind="resource_loop"]', (event) => {
 		descendantEdges.hide();
 		parent.data("collapsed", true);
 	}
+}
+
+cy.on("tap", "node", (event) => {
+	const id = event.target.id();
+	renderNodeDetails(graph.nodes[id]);
 });
 
+cy.on("tap", (event) => {
+	if (event.target === cy) {
+		closeNodeDetails();
+	}
+});
+
+cy.on("dbltap", 'node[kind="resource_loop"]', collapseHandler);
+cy.on("dbltap", 'node[kind="module"]', collapseHandler);

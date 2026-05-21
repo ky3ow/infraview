@@ -443,6 +443,10 @@ func (g *Graph) AddEdge(e Edge) error {
 		return fmt.Errorf("Unhandled edge between %v -> %v", to, from)
 	}
 
+	if from.Kind == ModuleNode && to.Kind == OutputNode {
+		return fmt.Errorf("Edge module->output was tried to create(%v -> %v)", to, from)
+	}
+
 	if to.isInstance || from.isInstance {
 		e.Type = EdgeInstance
 	}

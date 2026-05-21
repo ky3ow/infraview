@@ -1,10 +1,17 @@
 import { html, render } from 'https://unpkg.com/lighterhtml?module';
 
 const icons = {
-	default: {
+	default_resource: {
 		viewBox: "31.4 0 449.1 512",
 		body: `<path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/>`
 	},
+	loop: {
+		viewBox: "0 0 21 21",
+		body: `
+<path d="M0 0h21v21H0z" fill="none" />
+<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 5.5l-2 10m-2-10l-2 10m-1-7h9m-10 4h9" />
+`
+	}
 }
 
 const sidebar = document.getElementById("node-details-sidebar");
@@ -33,7 +40,7 @@ function escapeSvgText(value) {
 function resourceCardImage(node) {
 	const name = escapeSvgText(node.name || node.address);
 	const type = escapeSvgText(node.type || "");
-	const icon = icons[node.type] || icons.default;
+	const icon = icons[node.type] || icons.default_resource;
 	const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
 <rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" rx="8" ry="8" stroke="#d0d5dd"/>
@@ -50,11 +57,17 @@ function resourceCardImage(node) {
 }
 
 function loopImage(node) {
-	console.log("loop image called", node)
 	const name = escapeSvgText(node.name || node.address);
+	const icon = icons.loop
 	const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
-<rect x="0" y="0" width="50" height="50" fill="#fff" stroke="#ffffee"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
+<rect x="0" y="0" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd" stroke-width="5" />
+<svg xmlns="http://www.w3.org/2000/svg" x="15" y="10" width="62" height="${RESOURCE_CARD_HEIGHT - 20}" viewBox="${icon.viewBox}">
+  ${icon.body}
+</svg>
+<line x1="92" y1="0" x2="92" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/>
+<text x="102" y="${(RESOURCE_CARD_HEIGHT + 8.5) / 2}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text>
+
 </svg>`;
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -133,17 +146,24 @@ const cy = cytoscape({
 			style: {
 				"label": "",
 				"background-opacity": 0.4,
-				"border-width": 3,
-				"border-color": "#d0d5df",
+				"border-width": 2,
+				"border-color": "data(stateColor)",
 				"border-style": "dashed",
 				"padding": "24",
 				"background-image": "data(cardImage)",
 				"background-fit": "none",
-				"background-width": "100%",
-				"background-height": 50,
-				"background-position-y": "-50px",
+				"background-width": RESOURCE_CARD_WIDTH,
+				"background-position-x": "0px",
+				"background-height": RESOURCE_CARD_HEIGHT,
+				"background-position-y": `-${RESOURCE_CARD_HEIGHT}px`,
 				"background-clip": "none",
 			},
+		},
+		{
+			selector: 'node[kind="resource_loop"][collapsed]',
+			style: {
+				width: RESOURCE_CARD_WIDTH - 48
+			}
 		},
 		{
 			selector: "edge",
@@ -259,3 +279,21 @@ cy.on("tap", (event) => {
 		closeNodeDetails();
 	}
 });
+
+cy.on("dbltap", 'node[kind="resource_loop"]', (event) => {
+	const parent = event.target;
+	const collapsed = parent.data("collapsed") === true;
+	const descendants = parent.descendants();
+	const descendantEdges = descendants.connectedEdges();
+
+	if (collapsed) {
+		descendants.show();
+		descendantEdges.show();
+		parent.data("collapsed", false);
+	} else {
+		descendants.hide();
+		descendantEdges.hide();
+		parent.data("collapsed", true);
+	}
+});
+

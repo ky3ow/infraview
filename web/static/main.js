@@ -191,6 +191,14 @@ const cy = cytoscape({
 			},
 		},
 		{
+			selector: 'edge[type="summary"]',
+			style: {
+				// display: "none",
+				"line-style": "dashed",
+				"opacity": 1,
+			},
+		},
+		{
 			selector: 'edge[type="instance"]',
 			style: {
 				display: "none",
@@ -277,23 +285,6 @@ function closeNodeDetails() {
 	sidebar.classList.remove("is-open");
 }
 
-function collapseHandler(event) {
-	const parent = event.target;
-	const collapsed = parent.data("collapsed") === true;
-	const descendants = parent.descendants();
-	const descendantEdges = descendants.connectedEdges();
-
-	if (collapsed) {
-		descendants.show();
-		descendantEdges.show();
-		parent.data("collapsed", false);
-	} else {
-		descendants.hide();
-		descendantEdges.hide();
-		parent.data("collapsed", true);
-	}
-}
-
 cy.on("tap", "node", (event) => {
 	const id = event.target.id();
 	renderNodeDetails(graph.nodes[id]);
@@ -305,5 +296,62 @@ cy.on("tap", (event) => {
 	}
 });
 
-cy.on("dbltap", 'node[kind="resource_loop"]', collapseHandler);
-cy.on("dbltap", 'node[kind="module"]', collapseHandler);
+cy.on("dbltap", 'node[kind="resource_loop"], node[kind="module"]', (event) => {
+	const parent = event.target;
+
+	if (parent.data("collapsed")) {
+		expandParent(parent)
+	} else {
+		collapseParent(parent);
+	}
+});
+
+function summaryEdgeId(parentId, sourceId, targetId) {
+	return `summary:${parentId}:${sourceId}>${targetId}`;
+}
+
+function collapseParent(parent) {
+	const descendants = parent.descendants();
+	const descendantIds = new Set(descendants.map(n => n.id()));
+	const parentId = parent.id();
+
+	const externalEdges = descendants.connectedEdges().filter(edge => {
+		const sourceInside = descendantIds.has(edge.source().id());
+		const targetInside = descendantIds.has(edge.target().id());
+
+		return sourceInside !== targetInside;
+	});
+
+	const summaryEdges = externalEdges.map(edge => {
+		const sourceInside = descendantIds.has(edge.source().id());
+		const outsideNode = sourceInside ? edge.target() : edge.source();
+
+		return {
+			group: "edges",
+			data: {
+				id: summaryEdgeId(parentId, edge.source().id(), edge.target().id()),
+				source: sourceInside ? parentId : outsideNode.id(),
+				target: sourceInside ? outsideNode.id() : parentId,
+				type: "summary",
+				originalEdge: edge.id(),
+			},
+			classes: "summary-edge",
+		};
+	});
+
+	cy.add(summaryEdges);
+
+	descendants.hide();
+	parent.data("collapsed", true);
+}
+
+function expandParent(parent) {
+	const parentId = parent.id();
+
+	cy.edges(`[type = "summary"]`).filter(edge => {
+		return edge.data("source") === parentId || edge.data("target") === parentId;
+	}).remove();
+
+	parent.descendants().show();
+	parent.data("collapsed", false);
+}

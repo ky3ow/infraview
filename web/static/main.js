@@ -1,13 +1,16 @@
 import { html, render } from 'https://unpkg.com/lighterhtml?module';
 
 const icons = {
-	default: '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="31.4 0 449.1 512"><path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/></svg>',
+	default: {
+		viewBox: "31.4 0 449.1 512",
+		body: '<path d="m185.9 89.8 139.2 80.8v161.7l-139.2-80.8zm155.4 80.9v161.7l139.2-80.8V89.8zM31.4 0v161.7l139.2 80.8V80.8zm154.5 431.2L325.2 512V350.3L186 269.5v161.7z" style="fill-rule:evenodd;clip-rule:evenodd;fill:#a067da"/>'
+	},
 }
 
 const cont = document.getElementById("graph");
 const sidebar = document.getElementById("node-details-sidebar");
 const graph = JSON.parse(cont.dataset.config);
-const RESOURCE_CARD_WIDTH = 320;
+const RESOURCE_CARD_WIDTH = 340;
 const RESOURCE_CARD_HEIGHT = 96;
 const stateColors = {
 	create: "#27ae60",
@@ -29,11 +32,17 @@ function escapeSvgText(value) {
 function resourceCardImage(node) {
 	const name = escapeSvgText(node.name || node.address);
 	const type = escapeSvgText(node.type || "");
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
-<rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" stroke="#d0d5dd"/><line x1="72" y1="0" x2="72" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/>
-<line x1="72" y1="48" x2="${RESOURCE_CARD_WIDTH}" y2="48" stroke="#eaecf0"/>
-<text x="92" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text>
-<text x="92" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#667085">${type}</text>
+	const icon = icons[node.type] || icons.default;
+	const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
+<rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" rx="8" ry="8" stroke="#d0d5dd"/>
+<svg xmlns="http://www.w3.org/2000/svg" x="15" y="10" width="62" height="${RESOURCE_CARD_HEIGHT - 20}" viewBox="${icon.viewBox}">
+  ${icon.body}
+</svg>
+<line x1="92" y1="0" x2="92" y2="${RESOURCE_CARD_HEIGHT}" stroke="#d0d5dd"/>
+<line x1="92" y1="48" x2="${RESOURCE_CARD_WIDTH}" y2="48" stroke="#eaecf0"/>
+<text x="102" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#1d2939">${name}</text>
+<text x="102" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" fill="#667085">${type}</text>
 </svg>`;
 
 	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -41,16 +50,15 @@ function resourceCardImage(node) {
 
 const elements = [];
 for (const [id, n] of Object.entries(graph.nodes)) {
-	n.address = id;
 	const state = n.state || "noop";
 	elements.push({
 		data: {
-			id,
+			id: id,
 			label: id,
 			kind: n.kind,
 			name: n.name,
 			type: n.type,
-			state,
+			state: state,
 			stateColor: stateColors[state] || "transparent",
 			cardImage: n.kind === "resource" ? resourceCardImage(n) : "",
 		},
@@ -74,12 +82,11 @@ const cy = cytoscape({
 				height: RESOURCE_CARD_HEIGHT,
 				label: "",
 				"background-image": "data(cardImage)",
-				"background-fit": "none",
 				"background-width": RESOURCE_CARD_WIDTH,
 				"background-height": RESOURCE_CARD_HEIGHT,
-				"background-opacity": 1,
+				"background-opacity": 0,
 				"background-color": "transparent",
-				"underlay-padding": 2,
+				"underlay-padding": 0,
 				"underlay-color": "data(stateColor)",
 				"underlay-opacity": 0,
 			}
@@ -98,7 +105,7 @@ setInterval(() => {
 		nodes.animate({
 			style: {
 				"underlay-padding": pulseOn ? 3 : 1,
-				"underlay-opacity": pulseOn ? 1 : 0.35,
+				"underlay-opacity": pulseOn ? 0.9 : 0.35,
 			},
 			duration: 700,
 		});

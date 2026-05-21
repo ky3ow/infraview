@@ -1,4 +1,4 @@
-// TODO better data module
+// TODO better data shaping for ease of manipulation
 // TODO count/foreach for modules
 // TODO dynamic
 // TODO edge attributes to have granular dependency shown

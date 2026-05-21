@@ -57,6 +57,11 @@ func (g *Graph) discoverParentState() {
 		allSame := true
 		for _, child := range g.Nodes {
 			if child.Parent == parent.Address {
+				// this needs knowledge that all children are resolved state, +1 to data reform TODO
+				if child.Kind != ModuleNode && child.Kind != LoopResourceNode && child.Kind != ResourceNode {
+					continue
+				}
+
 				if parentState == "" {
 					parentState = child.State
 				} else if parentState != child.State {

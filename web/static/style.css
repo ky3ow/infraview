@@ -136,8 +136,15 @@ body {
   list-style: none;
 }
 
-.revision-item {
+.revision-link {
+  display: block;
   padding: 0.9rem 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.revision-link:hover {
+  background: #f7f9fb;
 }
 
 .revision-item + .revision-item {

@@ -2,19 +2,18 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/ky3ow/infraview/pkg/graph"
 )
 
 type Server struct {
 	addr        string
-	mu          sync.RWMutex
-	states      map[string]*graph.Graph
 	catalogTmpl *template.Template
 	graphTmpl   *template.Template
 }
@@ -29,8 +28,7 @@ func absPaths(paths []string) []string {
 
 func New(addr string) *Server {
 	s := &Server{
-		addr:   addr,
-		states: make(map[string]*graph.Graph),
+		addr: addr,
 	}
 	s.loadTemplates()
 	return s
@@ -57,11 +55,12 @@ func (s *Server) loadTemplates() {
 
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleCatalog)
-	mux.HandleFunc("/graph", s.handleGraph)
+	mux.HandleFunc("GET /{$}", s.handleCatalog)
+	mux.HandleFunc("GET /graph", s.handleGraph)
+	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
-	mux.HandleFunc("/api/v1/states", s.handlePlans)
+	mux.HandleFunc("POST /api/v1/states", s.handlePlans)
 
 	log.Printf("Listening on %s\n", s.addr)
 	return http.ListenAndServe(s.addr, mux)
@@ -99,7 +98,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 				Revisions: []catalogRevision{
 					{
 						SHA:    "8f4c2a91",
-						Branch: "main",
+						Branch: "simple_deps",
 						Status: "applied",
 						Changes: revisionChangeOverview{
 							Created: 3,
@@ -142,20 +141,28 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	graphData := s.states["latest"]
+	// TODO redirect to /graph/{latest_namespace}/{latest_revision} once catalog metadata is stored.
+	http.Error(w, "latest graph is not available yet", http.StatusNotImplemented)
+}
 
-	var encoded []byte
-	var err error
-	if graphData != nil {
-		encoded, err = json.Marshal(graphData)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else {
-		encoded = []byte(`{"nodes":[],"edges":[]}`)
+func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
+	namespace := r.PathValue("namespace")
+	revision := r.PathValue("revision")
+
+	graphData, err := getGraph(namespace, revision)
+	if errors.Is(err, os.ErrNotExist) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	encoded, err := json.Marshal(graphData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	data := struct {
@@ -173,22 +180,38 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func getGraph(namespace, revision string) (*graph.Graph, error) {
+	// TODO replace this shim with a namespace/revision lookup backed by persisted plans.
+	_ = namespace
+
+	plans := map[string]string{
+		"8f4c2a91": "test/graph/03-simple-dependencies/plan.json",
+		"c71b03de": "test/graph/02-simple-create-update-delete/plan.json",
+		"1a9e6b42": "test/graph/11-deletion-edges/plan.json",
 	}
 
+	planPath, ok := plans[revision]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+
+	file, err := os.Open(planPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return graph.New(file)
+}
+
+func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
+	// TODO store the submitted plan in DB with namespace/revision metadata.
 	g, err := graph.New(r.Body)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.states["latest"] = g
 
 	w.Header().Set("Content-Type", "application/json")
 

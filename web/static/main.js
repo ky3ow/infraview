@@ -253,9 +253,17 @@ const cy = cytoscape({
 		{
 			selector: 'edge[type="transitive"]',
 			style: {
-				// display: "none",
+				display: "none",
 				"line-style": "dashed",
+				"target-arrow-color": stateColors.delete,
+				"line-color": stateColors.delete,
 				"opacity": 0.25,
+			},
+		},
+		{
+			selector: 'edge.transitive-visible',
+			style: {
+				display: "element",
 			},
 		},
 		{
@@ -492,6 +500,15 @@ cy.on("dbltap", 'node[kind="resource_loop"], node[kind="module"]', (event) => {
 		collapseParent(parent);
 	}
 });
+
+cy.on("mouseover", "node", (event) => {
+	event.target.connectedEdges('[type="transitive"]').addClass("transitive-visible");
+});
+
+cy.on("mouseout", "node", (event) => {
+	cy.edges("edge.transitive-visible").removeClass("transitive-visible");
+});
+
 
 function summaryEdgeId(parentId, sourceId, targetId) {
 	return `summary:${parentId}:${sourceId}>${targetId}`;

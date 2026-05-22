@@ -56,6 +56,20 @@ const stateColors = {
 	noop: "transparent",
 };
 
+// States that participate in filtering.
+const FILTERABLE_STATES = ["create", "delete", "modify", "noop", "replace"];
+
+const stateLabels = {
+	create: "Create",
+	delete: "Delete",
+	modify: "Modify",
+	noop: "No-op",
+	replace: "Replace",
+};
+
+// Tracks which filterable states are currently visible (true = shown).
+const activeFilters = Object.fromEntries(FILTERABLE_STATES.map(s => [s, true]));
+
 function escapeSvgText(value) {
 	return String(value ?? "")
 		.replaceAll("&", "&amp;")
@@ -416,6 +430,47 @@ function closeNodeDetails() {
 	sidebar.classList.remove("is-open");
 }
 
+function countNodesByState() {
+	const counts = {};
+	for (const state of FILTERABLE_STATES) {
+		counts[state] = cy.nodes(`[state="${state}"]`).length;
+	}
+	return counts;
+}
+
+function renderStateFilters() {
+	const counts = countNodesByState();
+	const filterContainer = document.getElementById("state-filters");
+
+	// TODO move this hack to markup
+	render(filterContainer, html`
+		<div class="state-filter-list">
+			${FILTERABLE_STATES.map(state => html`
+				<label class="state-filter-item">
+					<span class="state-filter-color-dot" style="background:${stateColors[state]};border:1px solid #ccc"></span>
+					<span class="state-filter-label">${stateLabels[state]}</span>
+					<span class="state-filter-count">${counts[state]}</span>
+					<input
+						type="checkbox"
+						class="state-filter-checkbox"
+						checked=${activeFilters[state]}
+						onchange=${() => {
+							activeFilters[state] = !activeFilters[state];
+							applyFilters();
+							renderStateFilters();
+						}}
+					/>
+				</label>
+			`)}
+		</div>
+		<button class="state-filter-reset-btn" onclick=${() => {
+			for (const s of FILTERABLE_STATES) activeFilters[s] = true;
+			applyFilters();
+			renderStateFilters();
+		}}>Show All</button>
+	`);
+}
+
 cy.on("tap", "node", (event) => {
 	const id = event.target.id();
 	renderNodeDetails(graph.nodes[id]);
@@ -486,3 +541,61 @@ function expandParent(parent) {
 	parent.descendants().show();
 	parent.data("collapsed", false);
 }
+
+function applyFilters() {
+	const CONTAINER_KINDS = new Set(["module", "resource_loop", "module_loop"]);
+
+	const ownHidden = new Set();
+	for (const [state, visible] of Object.entries(activeFilters)) {
+		if (!visible) {
+			cy.nodes(`[state="${state}"]`).forEach(n => {
+				// Modules/loops with modify state are exempt — never hidden
+				if (state === "modify" && CONTAINER_KINDS.has(n.data("kind"))) return;
+				ownHidden.add(n.id());
+			});
+		}
+	}
+
+	const cascadeHidden = (nodeId) => {
+		cy.getElementById(nodeId).descendants().forEach(child => {
+			const isExempt = child.data("state") === "modify" && CONTAINER_KINDS.has(child.data("kind"));
+			if (isExempt) return;
+			if (ownHidden.has(child.id())) return;
+			ownHidden.add(child.id());
+			cascadeHidden(child.id());
+		});
+	};
+
+	for (const id of [...ownHidden]) {
+		cascadeHidden(id);
+	}
+
+	const shouldBeVisible = new Set();
+	for (const id of ownHidden) {
+		const node = cy.getElementById(id);
+		const visibleDescendants = node.descendants().some(d => !ownHidden.has(d.id()));
+		if (visibleDescendants) {
+			shouldBeVisible.add(id);
+		}
+	}
+
+	cy.batch(() => {
+		for (const id of ownHidden) {
+			const node = cy.getElementById(id);
+			if (shouldBeVisible.has(id)) {
+				node.style("display", "element");
+			} else {
+				node.style("display", "none");
+			}
+		}
+		cy.nodes().forEach(n => {
+			if (!ownHidden.has(n.id())) {
+				n.style("display", "element");
+			}
+		});
+	});
+}
+
+// Initialize filter UI on load
+renderStateFilters();
+applyFilters();

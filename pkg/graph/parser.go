@@ -449,6 +449,55 @@ func (g *Graph) AddEdge(e Edge) error {
 	return nil
 }
 
+// converts transitive edges to direct edges
+// when there is no other path between the same endpoints.
+// Reachability is checked against all other edges (direct + transitive),
+// excluding the edge being evaluated, so that redundant transitive edges
+// stay transitive while indispensable ones become direct.
+func (g *Graph) promoteTransitiveEdges() {
+	for i := range g.Edges {
+		e := &g.Edges[i]
+		if e.Type != EdgeTransitive {
+			continue
+		}
+		// Build adjacency from all OTHER edges, skipping the current one
+		adj := make(map[string][]string)
+		for j := range g.Edges {
+			if j == i {
+				continue
+			}
+			other := &g.Edges[j]
+			adj[other.From] = append(adj[other.From], other.To)
+		}
+		if !g.hasPath(e.From, e.To, adj) {
+			e.Type = EdgeDirect
+		}
+	}
+}
+
+// hasPath returns true if `to` is reachable from `from`
+// using the given adjacency list (BFS).
+func (g *Graph) hasPath(from, to string, adj map[string][]string) bool {
+	visited := make(map[string]bool)
+	queue := []string{from}
+	visited[from] = true
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if current == to {
+			return true
+		}
+		for _, neighbor := range adj[current] {
+			if !visited[neighbor] {
+				visited[neighbor] = true
+				queue = append(queue, neighbor)
+			}
+		}
+	}
+	return false
+}
+
 // Walks expression maps and handles references.
 // callback accepts expression key which is expression name
 // and reference itself(the reference address)
@@ -504,6 +553,7 @@ func New(r io.Reader) (*Graph, error) {
 	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
 	graph.discoverInstanceEdges(&plan)
 	graph.discoverDeletedLoopEdges()
+	graph.promoteTransitiveEdges()
 
 	return &graph, nil
 }

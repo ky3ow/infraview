@@ -178,6 +178,12 @@ const cy = cytoscape({
 			}
 		},
 		{
+			selector: ".collapsed, .filtered",
+			style: {
+				display: "none"
+			}
+		},
+		{
 			selector: 'node[kind="resource"]',
 			style: {
 				width: RESOURCE_CARD_WIDTH,
@@ -224,6 +230,7 @@ const cy = cytoscape({
 				"border-color": "data(stateColor)",
 				"border-style": "dashed",
 				"padding": "24",
+				"min-width": RESOURCE_CARD_WIDTH - 48,
 				"background-image": "data(cardImage)",
 				"background-fit": "none",
 				"background-width": RESOURCE_CARD_WIDTH,
@@ -232,12 +239,6 @@ const cy = cytoscape({
 				"background-position-y": `-${RESOURCE_CARD_HEIGHT}px`,
 				"background-clip": "none",
 			},
-		},
-		{
-			selector: 'node[kind="resource_loop"][collapsed], node[kind="module"][collapsed]',
-			style: {
-				width: RESOURCE_CARD_WIDTH - 48
-			}
 		},
 		{
 			selector: "edge",
@@ -259,7 +260,6 @@ const cy = cytoscape({
 		{
 			selector: 'edge[type="summary"]',
 			style: {
-				// display: "none",
 				"line-style": "dashed",
 				"opacity": 1,
 			},
@@ -527,7 +527,7 @@ function collapseParent(parent) {
 
 	cy.add(summaryEdges);
 
-	descendants.hide();
+	descendants.addClass("collapsed");
 	parent.data("collapsed", true);
 }
 
@@ -538,7 +538,7 @@ function expandParent(parent) {
 		return edge.data("source") === parentId || edge.data("target") === parentId;
 	}).remove();
 
-	parent.descendants().show();
+	parent.descendants().removeClass("collapsed");
 	parent.data("collapsed", false);
 }
 
@@ -583,14 +583,14 @@ function applyFilters() {
 		for (const id of ownHidden) {
 			const node = cy.getElementById(id);
 			if (shouldBeVisible.has(id)) {
-				node.style("display", "element");
+				node.removeClass("filtered");
 			} else {
-				node.style("display", "none");
+				node.addClass("filtered");
 			}
 		}
 		cy.nodes().forEach(n => {
 			if (!ownHidden.has(n.id())) {
-				n.style("display", "element");
+				n.removeClass("filtered");
 			}
 		});
 	});

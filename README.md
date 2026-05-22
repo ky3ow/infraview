@@ -5,6 +5,10 @@ go mod tidy
 go run ./cmd/infraview-server # starts web server at localhost:8080
 ```
 
+# Dependencies
+
+developed with go 1.26.3
+
 # Main functionality
 
 - Http server for interactive graph +

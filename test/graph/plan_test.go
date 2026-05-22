@@ -312,6 +312,26 @@ func TestDeleteCount(t *testing.T) {
 	expectEdge(t, got, "tfcoremock_simple_resource.counted", "tfcoremock_simple_resource.dep", "deleted container to deleted dep")
 }
 
+// Verifies transitive edge collapse on deleted chain.
+// Chain: one -> two -> three -> four/also_four
+// Chain links should be direct, all shortcuts should stay transitive.
+func TestTransitiveEdgeCollapse(t *testing.T) {
+	got := setup(t, "15-test-collapse/plan.json")
+
+	// Chain edges — indispensable, should be direct
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.two", "direct", "direct first dependency")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.two", "tfcoremock_simple_resource.three", "direct", "direct first dependency")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.three", "tfcoremock_simple_resource.four", "direct", "direct first dependency")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.three", "tfcoremock_simple_resource.also_four", "direct", "direct first dependency")
+
+	// Shortcut edges — covered by chain, should stay transitive
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.three", "transitive", "shortcut one->three should stay transitive")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.four", "transitive", "transitive descendant")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.also_four", "transitive", "transitive descendant")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.two", "tfcoremock_simple_resource.four", "transitive", "transitive descendant")
+	expectEdgeOfType(t, got, "tfcoremock_simple_resource.two", "tfcoremock_simple_resource.also_four", "transitive", "transitive descendant")
+}
+
 func setup(t *testing.T, planPath string) *graph.Graph {
 	t.Helper()
 	file, err := os.Open(planPath)
@@ -386,6 +406,23 @@ func expectEdge(t *testing.T, g *graph.Graph, a, b, context string) {
 		}
 	}
 
+	if !found {
+		t.Errorf("[%v]:: edge '%v' -> '%v' not found", context, a, b)
+	}
+}
+
+func expectEdgeOfType(t *testing.T, g *graph.Graph, a, b, expectedType, context string) {
+	t.Helper()
+	found := false
+	for _, edge := range g.Edges {
+		if edge.From == a && edge.To == b {
+			found = true
+			if string(edge.Type) != expectedType {
+				t.Errorf("[%v]:: edge '%v' -> '%v' expected type '%v', got '%v'", context, a, b, expectedType, edge.Type)
+			}
+			break
+		}
+	}
 	if !found {
 		t.Errorf("[%v]:: edge '%v' -> '%v' not found", context, a, b)
 	}

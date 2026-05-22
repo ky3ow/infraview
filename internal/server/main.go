@@ -218,7 +218,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	// TODO redirect to /graph/{latest_namespace}/{latest_revision} once catalog metadata is stored.
-	http.Error(w, "latest graph is not available yet", http.StatusNotImplemented)
+	http.Redirect(w,r, "/graph/modules/05", http.StatusSeeOther)
 }
 
 func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {

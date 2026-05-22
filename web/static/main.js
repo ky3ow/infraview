@@ -26,7 +26,6 @@ const stateLabels = {
 	replace: "Replace",
 };
 
-// Tracks which filterable states are currently visible (true = shown).
 const activeFilters = Object.fromEntries(FILTERABLE_STATES.map(s => [s, true]));
 
 function escapeSvgText(value) {

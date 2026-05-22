@@ -1,13 +1,17 @@
+# How to run
+
+`go run ./cmd/infraview-server` and navigate to `localhost:8080`, it will have sample graphs(for now)
+
 # Main functionality
 
-- Http server for interactive graph
-- See graph of your resources and variables, with connections between and dependencies
-- Highlight resource operations(create,update,delete)
-- Filtering
-- Grouping
-- Resource details, what triggered the change, old/new values
-- Plan history, separated by "namespaces"(e.g. you create namespace per git branch)
-- CI/CD integration via REST api calls(possibly cli tool as project grows)
+- Http server for interactive graph +
+- See graph of your resources and variables, with connections between and dependencies +
+- Highlight resource operations(create,update,delete) +
+- Filtering +
+- Grouping +
+- Resource details, what triggered the change, old/new values +-
+- Plan history, separated by "namespaces"(e.g. you create namespace per git branch) (coming)
+- CI/CD integration via REST api calls(possibly cli tool as project grows) (coming)
 
 ## Nice to have
 

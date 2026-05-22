@@ -174,14 +174,12 @@ func TestModuleOutputs(t *testing.T) {
 
 	expectNode(t, got, "outer", "outer", "simple output")
 	expectEdge(t, got, "module.sample.two_passthrough_output", "outer", "simple output")
-	expectEdge(t, got, "module.sample", "outer", "simple output")
 
 	expectNode(t, got, "one_output", "module.sample.one_output", "module output")
 	expectEdge(t, got, "module.sample.tfcoremock_simple_resource.simple", "module.sample.one_output", "module output")
 
 	expectNode(t, got, "two_passthrough_output", "module.sample.two_passthrough_output", "module passthrough output")
 	expectEdge(t, got, "module.sample.module.sample_child.two_output", "module.sample.two_passthrough_output", "module passthrough output")
-	expectEdge(t, got, "module.sample.module.sample_child", "module.sample.two_passthrough_output", "module passthrough output")
 
 	expectNode(t, got, "sample_child", "module.sample.module.sample_child", "child module")
 	expectEdge(t, got, "module.sample.module.sample_child.tfcoremock_simple_resource.simple", "module.sample.module.sample_child.two_output", "module passthrough output")

@@ -1,3 +1,7 @@
+// Tests for plans.
+// Throwaway tests just to verify that plan parses terraform feature
+// into graph properly. E.g. created modules generate proper graph,
+// deleted modules generate proper graph, etc.
 package graph_test
 
 import (

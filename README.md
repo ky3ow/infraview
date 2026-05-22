@@ -1,6 +1,9 @@
 # How to run
 
-`go run ./cmd/infraview-server` and navigate to `localhost:8080`, it will have sample graphs(for now)
+```bash
+go mod tidy
+go run ./cmd/infraview-server # starts web server at localhost:8080
+```
 
 # Main functionality
 

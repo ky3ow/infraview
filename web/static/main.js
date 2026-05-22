@@ -412,14 +412,14 @@ function renderNodeDetails(node) {
 						`)}
 					</dl>
 				` : ""}
-				${node.parameters?.length ? html`
+				${node.parameters?.length ? "": "" /* html`
 					<section class="node-details-section">
 						<h3>Parameters</h3>
 						<ul>
 							${node.parameters.map((parameter) => html`<li>${parameter}</li>`)}
 						</ul>
 					</section>
-				` : ""}
+				` : ""*/}
 				${node.changes ? html`
 					<section class="node-details-section">
 						<h3>Changes</h3>
@@ -499,6 +499,7 @@ cy.on("dbltap", 'node[kind="resource_loop"], node[kind="module"]', (event) => {
 	}
 });
 
+// dim everything except containers when hovering deleted nodes or instances
 cy.on("mouseover", "node", (event) => {
 	const node = event.target;
 
@@ -516,12 +517,9 @@ cy.on("mouseover", "node", (event) => {
 	const shown = node.connectedEdges();
 	shown.addClass("shown");
 
-	let directlyConnected = shown.connectedNodes().union(node);
-	if (isInstance) {
-		directlyConnected = directlyConnected.union(parent);
-	}
+	const directlyConnected = shown.connectedNodes().union(node);
 
-	cy.nodes().filter(n => !directlyConnected.has(n)).addClass("dimmed");
+	cy.nodes().filter(n => (n.data("kind") !== "module") && (n.data("kind") !== "resource_loop") ).filter(n => !directlyConnected.has(n)).addClass("dimmed");
 	cy.edges().filter(e => !shown.has(e)).addClass("dimmed");
 });
 

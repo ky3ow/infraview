@@ -436,7 +436,6 @@ body {
   gap: 0;
   font-size: 0.8rem;
   border-radius: 6px;
-  padding: 0.5rem;
 }
 
 .change-row {
@@ -444,7 +443,7 @@ body {
   grid-template-columns: minmax(0, 90px) minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 0.35rem 0.5rem;
-  padding: 0.4rem 0;
+  padding: 0.5rem;
   border-bottom: 1px solid #f0f0f0;
 }
 

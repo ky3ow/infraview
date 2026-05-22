@@ -230,6 +230,7 @@ const cy = cytoscape({
 				"border-color": "data(stateColor)",
 				"border-style": "dashed",
 				"padding": "24",
+				"padding-top": "96",
 				"min-width": RESOURCE_CARD_WIDTH - 48,
 				"background-image": "data(cardImage)",
 				"background-fit": "none",

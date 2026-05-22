@@ -363,13 +363,73 @@ body {
   padding-left: 1rem;
 }
 
-.node-details-section pre {
-  max-height: 220px;
-  overflow: auto;
-  padding: 0.75rem;
-  background: #f6f8fa;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
+.changes-table {
+  display: grid;
+  gap: 0;
   font-size: 0.8rem;
-  white-space: pre-wrap;
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+
+.change-row {
+  display: grid;
+  grid-template-columns: minmax(0, 90px) minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.change-row:has(.value-created) {
+  background: #f0fdf4;
+}
+
+.change-row:has(.value-deleted) {
+  background: #fef2f2;
+}
+
+.change-row:has(.value-updated) {
+  background: #fef0d2;
+}
+
+.change-row:last-child {
+  border-bottom: none;
+}
+
+.change-key {
+  font-weight: 600;
+  color: #1d2939;
+  word-break: break-word;
+}
+
+.change-arrow {
+  color: #98a2b3;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.change-row dd {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.78rem;
+}
+
+/* Value color semantics */
+.value-regular {
+  color: #333;
+}
+
+.value-created {
+  color: #16a34a;
+}
+
+.value-updated {
+  color: #ca8a04;
+}
+
+.value-deleted {
+  color: #dc2626;
+}
+
+.value-null {
+  color: #94a3b8;
 }

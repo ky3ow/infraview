@@ -277,6 +277,86 @@ setInterval(() => {
 	});
 }, 800);
 
+function renderChangeRows(changes) {
+	if (!changes) return "";
+
+	const before = changes.before;
+	const after = changes.after;
+
+	const isNew = !before;
+	const isDeleted = !after;
+
+	const beforeMap = before || {};
+	const afterMap = after || {};
+
+	const allKeys = new Map();
+	for (const k of Object.keys(beforeMap)) allKeys.set(k, true);
+	for (const k of Object.keys(afterMap)) allKeys.set(k, true);
+
+	const rows = [];
+	for (const key of allKeys.keys()) {
+		const oldVal = beforeMap[key];
+		const newVal = afterMap[key];
+
+		if (oldVal == null && newVal == null) continue;
+
+		let oldClass, oldContent, newClass, newContent;
+
+		if (isNew) {
+			oldClass = "value-null";
+			oldContent = "<new>";
+			newClass = "value-created";
+			newContent = renderValueInline(newVal);
+		} else if (isDeleted) {
+			oldClass = "value-regular";
+			oldContent = renderValueInline(oldVal);
+			newClass = "value-deleted";
+			newContent = "<deleted>";
+		} else {
+			oldClass = "value-regular";
+			oldContent = renderValueInline(oldVal);
+
+			if (newVal == null && oldVal != null) {
+				newClass = "value-deleted";
+				newContent = renderValueInline(newVal);
+			} else if (newVal != null && oldVal == null) {
+				newClass = "value-created";
+				newContent = renderValueInline(newVal);
+			} else if (JSON.stringify(oldVal) === JSON.stringify(newVal)) {
+				newClass = "value-regular";
+				newContent = renderValueInline(newVal);
+			} else {
+				newClass = "value-updated";
+				newContent = renderValueInline(newVal);
+			}
+		}
+
+		rows.push(html`
+			<div class="change-row">
+				<dt class="change-key">${key}</dt>
+				<dd><span class=${oldClass}>${oldContent}</span></dd>
+				<span class="change-arrow">→</span>
+				<dd><span class=${newClass}>${newContent}</span></dd>
+			</div>
+		`);
+	}
+
+	if (rows.length === 0) return "";
+
+	return html`
+		<dl class="changes-table">
+			${rows}
+		</dl>
+	`;
+}
+
+function renderValueInline(v) {
+	if (typeof v === "object" && v !== null) {
+		return JSON.stringify(v);
+	}
+	return String(v);
+}
+
 function renderNodeDetails(node) {
 	if (!node) {
 		closeNodeDetails();
@@ -322,8 +402,7 @@ function renderNodeDetails(node) {
 				${node.changes ? html`
 					<section class="node-details-section">
 						<h3>Changes</h3>
-						${node.changes.before ? html`<pre>${JSON.stringify(node.changes.before, null, 2)}</pre>` : ""}
-						${node.changes.after ? html`<pre>${JSON.stringify(node.changes.after, null, 2)}</pre>` : ""}
+						${renderChangeRows(node.changes)}
 					</section>
 				` : ""}
 			</div>

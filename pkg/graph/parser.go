@@ -282,17 +282,6 @@ func (g *Graph) discoverDeletedLoopEdges() {
 				})
 			}
 		}
-
-		if from, ok := g.Nodes[e.From]; ok && from.isInstance && from.Parent != "" {
-			container := g.Nodes[from.Parent]
-			if container.Kind == LoopResourceNode && container.State == StateDelete {
-				g.AddEdge(Edge{
-					From: from.Parent,
-					To:   e.To,
-					Type: EdgeTransitive,
-				})
-			}
-		}
 	}
 }
 

@@ -17,8 +17,13 @@ developed with go 1.26.3
 - Filtering +
 - Grouping +
 - Resource details, what triggered the change, old/new values +-
-- Plan history, separated by "namespaces"(e.g. you create namespace per git branch) (coming)
-- CI/CD integration via REST api calls(possibly cli tool as project grows) (coming)
+
+## TODO
+- DB
+- Plan history, separated by "namespaces"(e.g. you create namespace per git branch) and UI for it
+- Proper rest api for ingesting
+- auth
+- env variables for server
 
 ## Nice to have
 

@@ -42,6 +42,7 @@ function resourceCardImage(node) {
 	const type = escapeSvgText(node.type || "");
 	const icon = icons[node.type] || icons.default_resource;
 	const readonlyIcon = icons.readonly;
+	// TODO svg helper would be worth it
 	const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" viewBox="0 0 ${RESOURCE_CARD_WIDTH} ${RESOURCE_CARD_HEIGHT}">
 <rect width="${RESOURCE_CARD_WIDTH}" height="${RESOURCE_CARD_HEIGHT}" fill="#fff" rx="8" ry="8" stroke="#d0d5dd"/>

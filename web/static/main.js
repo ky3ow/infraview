@@ -196,7 +196,7 @@ const cy = cytoscape({
 				"background-color": "transparent",
 				"underlay-padding": 0,
 				"underlay-color": "data(stateColor)",
-				"underlay-opacity": 0,
+				"underlay-opacity": 0.8,
 			}
 		},
 		{
@@ -251,19 +251,24 @@ const cy = cytoscape({
 			},
 		},
 		{
-			selector: 'edge[type="transitive"]',
+			selector: 'edge[type="transitive"], edge[type="instance"]',
 			style: {
 				display: "none",
 				"line-style": "dashed",
-				"target-arrow-color": stateColors.delete,
-				"line-color": stateColors.delete,
-				"opacity": 0.25,
+				"opacity": 0.65,
 			},
 		},
 		{
-			selector: 'edge.transitive-visible',
+			selector: 'edge.shown',
 			style: {
 				display: "element",
+			},
+		},
+		{
+			selector: '.dimmed',
+			style: {
+				opacity: 0.2,
+				"underlay-opacity": 0,
 			},
 		},
 		{
@@ -271,12 +276,6 @@ const cy = cytoscape({
 			style: {
 				"line-style": "dashed",
 				"opacity": 1,
-			},
-		},
-		{
-			selector: 'edge[type="instance"]',
-			style: {
-				display: "none",
 			},
 		},
 	],
@@ -293,7 +292,6 @@ setInterval(() => {
 		nodes.animate({
 			style: {
 				"underlay-padding": pulseOn ? 3 : 1,
-				"underlay-opacity": pulseOn ? 0.9 : 0.35,
 			},
 			duration: 700,
 		});
@@ -502,11 +500,34 @@ cy.on("dbltap", 'node[kind="resource_loop"], node[kind="module"]', (event) => {
 });
 
 cy.on("mouseover", "node", (event) => {
-	event.target.connectedEdges('[type="transitive"]').addClass("transitive-visible");
+	const node = event.target;
+
+	const isDeleted = node.data("state") === "delete";
+	const parentId = node.data("parent");
+	const parent = parentId ? cy.getElementById(parentId) : null;
+	const isInstance = parent && parent.length > 0 && parent.data("kind") === "resource_loop";
+
+	if (node.data("kind") == "resource_loop" || node.data("kind") == "module") {
+		return;
+	}
+
+	if (!isDeleted && !isInstance) return;
+
+	const shown = node.connectedEdges();
+	shown.addClass("shown");
+
+	let directlyConnected = shown.connectedNodes().union(node);
+	if (isInstance) {
+		directlyConnected = directlyConnected.union(parent);
+	}
+
+	cy.nodes().filter(n => !directlyConnected.has(n)).addClass("dimmed");
+	cy.edges().filter(e => !shown.has(e)).addClass("dimmed");
 });
 
 cy.on("mouseout", "node", (event) => {
-	cy.edges("edge.transitive-visible").removeClass("transitive-visible");
+	cy.elements(".dimmed").removeClass("dimmed");
+	cy.edges("edge.shown").removeClass("shown");
 });
 
 

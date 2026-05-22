@@ -1,3 +1,4 @@
+// TODO handle and log all errors
 // TODO better data shaping for ease of manipulation
 // TODO count/foreach for modules
 // TODO dynamic

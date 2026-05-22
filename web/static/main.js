@@ -1,7 +1,5 @@
 import { html, render } from 'https://unpkg.com/lighterhtml?module';
 import dagre from 'https://cdn.jsdelivr.net/npm/cytoscape-dagre@3.0.0/+esm';
-// import elkjs from 'https://cdn.jsdelivr.net/npm/elkjs@0.11.1/+esm';
-// import elk from 'https://cdn.jsdelivr.net/npm/cytoscape-elk@2.3.0/+esm';
 
 import icons from "./icons_default.js";
 
@@ -124,7 +122,6 @@ for (const edge of graph.edges) {
 }
 
 cytoscape.use(dagre);
-// cytoscape.use(elk);
 const cy = cytoscape({
 	container: document.getElementById("graph"),
 	wheelSensitivity: 0.3,
@@ -132,8 +129,7 @@ const cy = cytoscape({
 		nodes: nodes,
 		edges: edges,
 	},
-	layout: { name: "dagre", nodeSep: 180, rankSep: 150, spacingFactor: 1.2, },
-	// layout: { name: "elk", elk: { algorithm: "layered" } },
+	layout: { name: "dagre", nodeSep: 200, rankSep: 150, spacingFactor: 1.2, rankDir: "LR"},
 	style: [
 		{
 			selector: "node",

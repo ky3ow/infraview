@@ -15,7 +15,7 @@ developed with go 1.26.3
 - See graph of your resources and variables, with connections between and dependencies +
 - Highlight resource operations(create,update,delete) +
 - Filtering +
-- Grouping +
+- Grouping(loop/module level, can collapse with double-tap) +
 - Resource details, what triggered the change, old/new values +-
 
 ## TODO

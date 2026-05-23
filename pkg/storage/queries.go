@@ -198,12 +198,14 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 		Edges: make([]graph.Edge, 0),
 	}
 
-	// Load nodes
+	// Load nodes + details in one pass
 	rows, err := s.db.Query(`
-		SELECT n.address, n.name, n.mode, n.kind, n.state, n.parent_address
+		SELECT n.address, n.name, n.mode, n.kind, n.state, n.parent_address,
+		       nd.type, nd.changes
 		FROM nodes n
 		JOIN revisions r ON r.id = n.revision_id
 		JOIN namespaces ns ON ns.id = r.namespace_id
+		LEFT JOIN node_details nd ON nd.revision_id = n.revision_id AND nd.address = n.address
 		WHERE ns.name = ? AND r.hash = ?
 	`, namespace, hash)
 	if err != nil {
@@ -213,9 +215,11 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 
 	for rows.Next() {
 		var n DBNode
-		var mode, kind, state sql.NullString
+		var mode, kind, state, typ sql.NullString
 		var parent sql.NullString
-		err := rows.Scan(&n.Address, &n.Name, &mode, &kind, &state, &parent)
+		var changesJSON sql.NullString
+
+		err := rows.Scan(&n.Address, &n.Name, &mode, &kind, &state, &parent, &typ, &changesJSON)
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +232,7 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 			n.ParentAddress = parent.String
 		}
 
-		g.Nodes[n.Address] = graph.Node{
+		node := graph.Node{
 			Kind:    n.Kind,
 			Name:    n.Name,
 			Type:    "",
@@ -238,39 +242,19 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 			Parent:  n.ParentAddress,
 			Changes: nil,
 		}
-	}
 
-	// Load node details
-	detailRows, err := s.db.Query(`
-		SELECT nd.address, nd.type, nd.changes
-		FROM node_details nd
-		JOIN revisions r ON r.id = nd.revision_id
-		JOIN namespaces ns ON ns.id = r.namespace_id
-		WHERE ns.name = ? AND r.hash = ?
-	`, namespace, hash)
-	if err != nil {
-		return nil, err
-	}
-	defer detailRows.Close()
-
-	for detailRows.Next() {
-		var addr, typ string
-		var changesJSON sql.NullString
-		err := detailRows.Scan(&addr, &typ, &changesJSON)
-		if err != nil {
-			return nil, err
+		if typ.Valid {
+			node.Type = typ.String
 		}
-		if node, ok := g.Nodes[addr]; ok {
-			node.Type = typ
-			if changesJSON.Valid {
-				var changes graph.NodeChange
-				if err := json.Unmarshal([]byte(changesJSON.String), &changes); err != nil {
-					return nil, err
-				}
-				node.Changes = &changes
+		if changesJSON.Valid {
+			var changes graph.NodeChange
+			if err := json.Unmarshal([]byte(changesJSON.String), &changes); err != nil {
+				return nil, err
 			}
-			g.Nodes[addr] = node
+			node.Changes = &changes
 		}
+
+		g.Nodes[n.Address] = node
 	}
 
 	// Load edges

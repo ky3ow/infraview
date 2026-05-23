@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/ky3ow/infraview/pkg/catalog"
 )
 
 // Get or create and get a namespace
@@ -42,7 +44,7 @@ func (s *Store) EnsureNamespace(name string) (*DBNamespace, error) {
 // New revision in namespace
 // Naming like git branches - new revision may steal name from another
 // Update revision in place in case of pipeline re-runs on same commit
-func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevision, error) {
+func (s *Store) AddRevision(namespaceID int, hash string, name *string, metadata catalog.PlanMetadata) (*DBRevision, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -62,14 +64,14 @@ func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevi
 
 	_, err = tx.Exec(
 		`INSERT INTO revisions (namespace_id, hash, name, creates, updates, deletes)
-		 VALUES (?, ?, ?, 0, 0, 0)
+		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT (namespace_id, hash) DO UPDATE SET
 			name      = excluded.name,
-			creates   = 0,
-			updates   = 0,
-			deletes   = 0,
+			creates   = excluded.creates,
+			updates   = excluded.updates,
+			deletes   = excluded.deletes,
 			created_at = CURRENT_TIMESTAMP`,
-		namespaceID, hash, name,
+		namespaceID, hash, name, metadata.Created, metadata.Updated, metadata.Deleted,
 	)
 	if err != nil {
 		return nil, err

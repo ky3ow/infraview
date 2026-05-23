@@ -167,7 +167,6 @@ func SearchNamespaces(store *storage.Store, query string) (map[string][]Revision
 	return result, nil
 }
 
-func GetRevisionGraph(store *storage.Store, revisionID int) (*graph.Graph, error) {
-	// TODO it might need to be in business logic and not in storage
-	return store.GetGraph(revisionID)
+func GetRevisionGraph(store *storage.Store, namespace, hash string) (*graph.Graph, error) {
+	return store.GetGraph(namespace, hash)
 }

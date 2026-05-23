@@ -176,18 +176,36 @@ func (s *Store) SaveGraph(revisionID int, g *graph.Graph) error {
 }
 
 // GetGraph loads nodes, edges, and node details for a revision
-// and returns a reconstructed graph.Graph.
-func (s *Store) GetGraph(revisionID int) (*graph.Graph, error) {
+// identified by namespace name and hash, returning a reconstructed graph.Graph.
+// Returns ErrRevisionNotFound if no revision matches.
+func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
+	// Verify the revision exists
+	var exists int
+	if err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM revisions r
+		 JOIN namespaces ns ON ns.id = r.namespace_id
+		 WHERE ns.name = ? AND r.hash = ?`,
+		namespace, hash,
+	).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, ErrRevisionNotFound
+	}
+
 	g := &graph.Graph{
 		Nodes: make(map[string]graph.Node),
 		Edges: make([]graph.Edge, 0),
 	}
 
 	// Load nodes
-	rows, err := s.db.Query(
-		`SELECT address, name, mode, kind, state, parent_address FROM nodes WHERE revision_id = ?`,
-		revisionID,
-	)
+	rows, err := s.db.Query(`
+		SELECT n.address, n.name, n.mode, n.kind, n.state, n.parent_address
+		FROM nodes n
+		JOIN revisions r ON r.id = n.revision_id
+		JOIN namespaces ns ON ns.id = r.namespace_id
+		WHERE ns.name = ? AND r.hash = ?
+	`, namespace, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -211,22 +229,25 @@ func (s *Store) GetGraph(revisionID int) (*graph.Graph, error) {
 		}
 
 		g.Nodes[n.Address] = graph.Node{
-			Kind:     n.Kind,
-			Name:     n.Name,
-			Type:     "", // filled from details
-			Mode:     n.Mode,
-			State:    n.State,
-			Address:  n.Address,
-			Parent:   n.ParentAddress,
-			Changes:  nil, // filled from details
+			Kind:    n.Kind,
+			Name:    n.Name,
+			Type:    "",
+			Mode:    n.Mode,
+			State:   n.State,
+			Address: n.Address,
+			Parent:  n.ParentAddress,
+			Changes: nil,
 		}
 	}
 
 	// Load node details
-	detailRows, err := s.db.Query(
-		`SELECT address, type, changes FROM node_details WHERE revision_id = ?`,
-		revisionID,
-	)
+	detailRows, err := s.db.Query(`
+		SELECT nd.address, nd.type, nd.changes
+		FROM node_details nd
+		JOIN revisions r ON r.id = nd.revision_id
+		JOIN namespaces ns ON ns.id = r.namespace_id
+		WHERE ns.name = ? AND r.hash = ?
+	`, namespace, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -253,10 +274,13 @@ func (s *Store) GetGraph(revisionID int) (*graph.Graph, error) {
 	}
 
 	// Load edges
-	edgeRows, err := s.db.Query(
-		`SELECT from_address, to_address FROM edges WHERE revision_id = ?`,
-		revisionID,
-	)
+	edgeRows, err := s.db.Query(`
+		SELECT e.from_address, e.to_address
+		FROM edges e
+		JOIN revisions r ON r.id = e.revision_id
+		JOIN namespaces ns ON ns.id = r.namespace_id
+		WHERE ns.name = ? AND r.hash = ?
+	`, namespace, hash)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/ky3ow/infraview/pkg/catalog"
 	"github.com/ky3ow/infraview/pkg/graph"
 	"github.com/ky3ow/infraview/pkg/storage"
 )
@@ -64,7 +65,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
-	mux.HandleFunc("POST /api/v1/states", s.handlePlans)
+	mux.HandleFunc("GET /api/v1/states", s.handlePlans)
+	mux.HandleFunc("GET /api/catalog/search", s.handleCatalogSearch)
 
 	log.Printf("Listening on %s\n", s.addr)
 	return http.ListenAndServe(s.addr, mux)
@@ -229,8 +231,8 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 	namespace := r.PathValue("namespace")
 	revision := r.PathValue("revision")
 
-	graphData, err := getGraph(namespace, revision)
-	if errors.Is(err, os.ErrNotExist) {
+	graphData, err := catalog.GetRevisionGraph(s.store, namespace, revision)
+	if errors.Is(err, storage.ErrRevisionNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -326,4 +328,17 @@ func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error writing plan response %v", err)
 	}
+}
+
+func (s *Server) handleCatalogSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+
+	results, err := catalog.SearchNamespaces(s.store, query)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }

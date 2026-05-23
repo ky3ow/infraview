@@ -2,10 +2,13 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	_ "modernc.org/sqlite"
 )
+
+var ErrRevisionNotFound = errors.New("revision not found")
 
 type Store struct {
 	db *sql.DB

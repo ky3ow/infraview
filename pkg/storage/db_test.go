@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -249,7 +250,7 @@ func TestSaveGraphRoundTrip(t *testing.T) {
 	}
 
 	// Load it back
-	loaded, err := s.GetGraph(rev.ID)
+	loaded, err := s.GetGraph("testns", "abc")
 	if err != nil {
 		t.Fatalf("GetGraph: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestSaveGraphReplacesOnSecondCall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loaded, err := s.GetGraph(rev.ID)
+	loaded, err := s.GetGraph("testns", "abc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -408,5 +409,37 @@ func TestGetRevisionsByNamespaceID(t *testing.T) {
 	}
 	if revisions[2].Hash != "aaa" {
 		t.Fatalf("third should be aaa, got %q", revisions[2].Hash)
+	}
+}
+
+func TestGetGraphEmptyPlan(t *testing.T) {
+	s := newTestStore(t)
+
+	ns, _ := s.EnsureNamespace("empty")
+	rev, _ := s.UpsertRevision(ns.ID, "emptyhash", nil, 0, 0, 0)
+
+	g := &graph.Graph{
+		Nodes: map[string]graph.Node{},
+		Edges: []graph.Edge{},
+	}
+	if err := s.SaveGraph(rev.ID, g); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := s.GetGraph("empty", "emptyhash")
+	if err != nil {
+		t.Fatalf("GetGraph empty plan: %v", err)
+	}
+	if len(loaded.Nodes) != 0 {
+		t.Fatalf("expected 0 nodes, got %d", len(loaded.Nodes))
+	}
+}
+
+func TestGetGraphNotFound(t *testing.T) {
+	s := newTestStore(t)
+
+	_, err := s.GetGraph("nonexistent", "nope")
+	if !errors.Is(err, ErrRevisionNotFound) {
+		t.Fatalf("expected ErrRevisionNotFound, got %v", err)
 	}
 }

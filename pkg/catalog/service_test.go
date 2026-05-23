@@ -160,7 +160,7 @@ func TestSavePlanRoundTrip(t *testing.T) {
 		t.Fatalf("expected creates=1, got %d", rev.Summary.Created)
 	}
 
-	loaded, err := s.GetGraph(rev.ID)
+	loaded, err := s.GetGraph("production", "abc123")
 	if err != nil {
 		t.Fatalf("GetGraph: %v", err)
 	}
@@ -232,9 +232,9 @@ func TestGetRevisionGraph(t *testing.T) {
 		},
 		Edges: []graph.Edge{},
 	}
-	rev, _ := catalog.SavePlan(s, "production", "abc123", &name, catalog.PlanMetadata{Created: 1}, g)
+	_, _ = catalog.SavePlan(s, "production", "abc123", &name, catalog.PlanMetadata{Created: 1}, g)
 
-	loaded, err := catalog.GetRevisionGraph(s, rev.ID)
+	loaded, err := catalog.GetRevisionGraph(s, "production", "abc123")
 	if err != nil {
 		t.Fatalf("GetRevisionGraph: %v", err)
 	}

@@ -15,11 +15,11 @@ type DBNamespace struct {
 type DBRevision struct {
 	ID          int
 	NamespaceID int
-	Name        string
+	Name        *string
 	Hash        string
-	Create      int
-	Update      int
-	Delete      int
+	Creates     int
+	Updates     int
+	Deletes     int
 	CreatedAt   time.Time
 }
 

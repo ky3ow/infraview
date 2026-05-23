@@ -8,19 +8,25 @@ import (
 	"github.com/ky3ow/infraview/pkg/graph"
 )
 
-func TestEnsureTables(t *testing.T) {
+func newTestStore(t *testing.T) *Store {
+	t.Helper()
 	f, err := os.CreateTemp("", "infraview_*.db")
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := f.Name()
 	f.Close()
-	defer os.Remove(path)
+	t.Cleanup(func() { os.Remove(path) })
 
 	s, err := New(path)
 	if err != nil {
-		t.Fatalf("New() error: %v", err)
+		t.Fatal(err)
 	}
+	return s
+}
+
+func TestEnsureTables(t *testing.T) {
+	s := newTestStore(t)
 
 	rows, err := s.db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	if err != nil {
@@ -38,7 +44,6 @@ func TestEnsureTables(t *testing.T) {
 	}
 
 	expected := []string{"edges", "namespaces", "node_details", "nodes", "revisions"}
-	// sqlite_sequence may or may not exist depending on AUTOINCREMENT usage
 	filtered := make([]string, 0, len(tables))
 	for _, t := range tables {
 		if t == "sqlite_sequence" {
@@ -58,18 +63,7 @@ func TestEnsureTables(t *testing.T) {
 }
 
 func TestEnsureNamespace(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	// First call — should create
 	ns1, err := s.EnsureNamespace("production")
@@ -104,18 +98,7 @@ func TestEnsureNamespace(t *testing.T) {
 }
 
 func TestUpsertRevision(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	ns, err := s.EnsureNamespace("testns")
 	if err != nil {
@@ -145,18 +128,7 @@ func TestUpsertRevision(t *testing.T) {
 }
 
 func TestUpsertRevisionSameRow(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	ns, err := s.EnsureNamespace("testns")
 	if err != nil {
@@ -196,18 +168,7 @@ func TestUpsertRevisionSameRow(t *testing.T) {
 }
 
 func TestClearRevisionName(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	ns, err := s.EnsureNamespace("testns")
 	if err != nil {
@@ -241,18 +202,7 @@ func TestClearRevisionName(t *testing.T) {
 }
 
 func TestSaveGraphRoundTrip(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	ns, err := s.EnsureNamespace("testns")
 	if err != nil {
@@ -340,18 +290,7 @@ func TestSaveGraphRoundTrip(t *testing.T) {
 }
 
 func TestSaveGraphReplacesOnSecondCall(t *testing.T) {
-	f, err := os.CreateTemp("", "infraview_*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	f.Close()
-	defer os.Remove(path)
-
-	s, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := newTestStore(t)
 
 	ns, err := s.EnsureNamespace("testns")
 	if err != nil {

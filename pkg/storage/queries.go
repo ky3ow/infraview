@@ -341,18 +341,18 @@ type SearchResultRow struct {
 }
 
 // SearchCatalog returns all (namespace, revision) pairs where the namespace
-// name, revision hash, or revision name matches the given LIKE pattern.
-func (s *Store) SearchCatalog(pattern string) ([]SearchResultRow, error) {
+// name, revision hash, or revision name contains the given query.
+func (s *Store) SearchCatalog(query string) ([]SearchResultRow, error) {
 	rows, err := s.db.Query(
 		`SELECT n.id, n.name,
 		        r.id, r.namespace_id, r.name, r.hash, r.creates, r.updates, r.deletes, r.created_at
 		 FROM namespaces n
 		 JOIN revisions r ON r.namespace_id = n.id
-		 WHERE n.name LIKE ?
-		    OR r.hash LIKE ?
-		    OR r.name LIKE ?
+		 WHERE n.name LIKE '%' || ? || '%'
+		    OR r.hash LIKE '%' || ? || '%'
+		    OR r.name LIKE '%' || ? || '%'
 		 ORDER BY n.id, r.id DESC`,
-		pattern, pattern, pattern,
+		query, query, query,
 	)
 	if err != nil {
 		return nil, err

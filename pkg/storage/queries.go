@@ -273,6 +273,59 @@ func (s *Store) GetGraph(revisionID int) (*graph.Graph, error) {
 	return g, nil
 }
 
+// GetNamespaces returns all namespaces ordered by creation time.
+func (s *Store) GetNamespaces() ([]DBNamespace, error) {
+	rows, err := s.db.Query(`SELECT id, name, created_at FROM namespaces ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var namespaces []DBNamespace
+	for rows.Next() {
+		var ns DBNamespace
+		var createdAt string
+		if err := rows.Scan(&ns.ID, &ns.Name, &createdAt); err != nil {
+			return nil, err
+		}
+		ns.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+		if err != nil {
+			return nil, err
+		}
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces, rows.Err()
+}
+
+// GetRevisionsByNamespaceID returns all revisions for a namespace,
+// newest first.
+func (s *Store) GetRevisionsByNamespaceID(namespaceID int) ([]DBRevision, error) {
+	rows, err := s.db.Query(
+		`SELECT id, namespace_id, name, hash, creates, updates, deletes, created_at
+		 FROM revisions WHERE namespace_id = ? ORDER BY id DESC`,
+		namespaceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var revisions []DBRevision
+	for rows.Next() {
+		var rev DBRevision
+		var createdAt string
+		if err := rows.Scan(&rev.ID, &rev.NamespaceID, &rev.Name, &rev.Hash, &rev.Creates, &rev.Updates, &rev.Deletes, &createdAt); err != nil {
+			return nil, err
+		}
+		rev.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+		if err != nil {
+			return nil, err
+		}
+		revisions = append(revisions, rev)
+	}
+	return revisions, rows.Err()
+}
+
 // parentOrNil returns nil for empty parent so it stores as NULL.
 func parentOrNil(p string) *string {
 	if p == "" {

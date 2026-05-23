@@ -326,6 +326,58 @@ func (s *Store) GetRevisionsByNamespaceID(namespaceID int) ([]DBRevision, error)
 	return revisions, rows.Err()
 }
 
+type SearchResultRow struct {
+	NamespaceID   int
+	NamespaceName string
+	Revision      DBRevision
+}
+
+// SearchCatalog returns all (namespace, revision) pairs where the namespace
+// name, revision hash, or revision name matches the given LIKE pattern.
+func (s *Store) SearchCatalog(pattern string) ([]SearchResultRow, error) {
+	rows, err := s.db.Query(
+		`SELECT n.id, n.name,
+		        r.id, r.namespace_id, r.name, r.hash, r.creates, r.updates, r.deletes, r.created_at
+		 FROM namespaces n
+		 JOIN revisions r ON r.namespace_id = n.id
+		 WHERE n.name LIKE ?
+		    OR r.hash LIKE ?
+		    OR r.name LIKE ?
+		 ORDER BY n.id, r.id DESC`,
+		pattern, pattern, pattern,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResultRow
+	for rows.Next() {
+		var rev DBRevision
+		var nsID int
+		var nsName string
+		var createdAt string
+
+		if err := rows.Scan(&nsID, &nsName,
+			&rev.ID, &rev.NamespaceID, &rev.Name, &rev.Hash,
+			&rev.Creates, &rev.Updates, &rev.Deletes, &createdAt); err != nil {
+			return nil, err
+		}
+
+		rev.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, SearchResultRow{
+			NamespaceID:   nsID,
+			NamespaceName: nsName,
+			Revision:      rev,
+		})
+	}
+	return results, rows.Err()
+}
+
 // parentOrNil returns nil for empty parent so it stores as NULL.
 func parentOrNil(p string) *string {
 	if p == "" {

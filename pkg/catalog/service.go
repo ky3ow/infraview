@@ -41,9 +41,9 @@ func (r *RevisionView) fromDB(db *storage.DBRevision) {
 	r.Hash = db.Hash
 	r.CreatedAt = db.CreatedAt
 	r.Summary = PlanMetadata{
-				Created: db.Creates,
-				Updated: db.Updates,
-				Deleted: db.Deletes,
+		Created: db.Creates,
+		Updated: db.Updates,
+		Deleted: db.Deletes,
 	}
 }
 
@@ -146,6 +146,25 @@ func ListRevisions(store *storage.Store, namespaceID int) ([]RevisionView, error
 	}
 
 	return res, nil
+}
+
+func SearchNamespaces(store *storage.Store, query string) (map[string][]RevisionView, error) {
+	pattern := "%" + query + "%"
+
+	rows, err := store.SearchCatalog(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]RevisionView)
+
+	for _, row := range rows {
+		rev := RevisionView{}
+		rev.fromDB(&row.Revision)
+		result[row.NamespaceName] = append(result[row.NamespaceName], rev)
+	}
+
+	return result, nil
 }
 
 func GetRevisionGraph(store *storage.Store, revisionID int) (*graph.Graph, error) {

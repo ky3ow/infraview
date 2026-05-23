@@ -242,3 +242,135 @@ func TestGetRevisionGraph(t *testing.T) {
 		t.Fatalf("expected 1 node, got %d", len(loaded.Nodes))
 	}
 }
+
+func TestSearchNamespaces_EmptyQuery(t *testing.T) {
+	s := newStore(t)
+
+	// Seed data
+	name1 := "main"
+	catalog.SavePlan(s, "production", "aaa111", &name1, catalog.PlanMetadata{Created: 1}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "production", "bbb222", nil, catalog.PlanMetadata{Updated: 1}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "staging", "ccc333", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+
+	results, err := catalog.SearchNamespaces(s, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 namespaces, got %d", len(results))
+	}
+
+	// Production should have 2 revisions
+	if len(results["production"]) != 2 {
+		t.Fatalf("production should have 2 revisions, got %d", len(results["production"]))
+	}
+
+	// Staging should have 1 revision
+	if len(results["staging"]) != 1 {
+		t.Fatalf("staging should have 1 revision, got %d", len(results["staging"]))
+	}
+}
+
+func TestSearchNamespaces_ByNamespaceName(t *testing.T) {
+	s := newStore(t)
+
+	catalog.SavePlan(s, "production", "aaa", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "production", "bbb", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "staging", "ccc", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+
+	results, err := catalog.SearchNamespaces(s, "prod")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 namespace, got %d", len(results))
+	}
+	if results["production"] == nil {
+		t.Fatal("expected production key in results")
+	}
+	// All revisions of matching namespace should be returned
+	if len(results["production"]) != 2 {
+		t.Fatalf("expected 2 revisions, got %d", len(results["production"]))
+	}
+}
+
+func TestSearchNamespaces_ByHash(t *testing.T) {
+	s := newStore(t)
+
+	catalog.SavePlan(s, "production", "deadbeef", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "production", "abc123", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "staging", "feedface", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+
+	results, err := catalog.SearchNamespaces(s, "dead")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results["production"] == nil {
+		t.Fatal("expected production key in results")
+	}
+	if len(results["production"]) != 1 {
+		t.Fatalf("expected 1 revision, got %d", len(results["production"]))
+	}
+	if results["production"][0].Hash != "deadbeef" {
+		t.Fatalf("expected hash deadbeef, got %q", results["production"][0].Hash)
+	}
+}
+
+func TestSearchNamespaces_ByRevisionName(t *testing.T) {
+	s := newStore(t)
+
+	name1 := "main"
+	name2 := "feature/db"
+	catalog.SavePlan(s, "production", "aaa", &name1, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "production", "bbb", &name2, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+	catalog.SavePlan(s, "staging", "ccc", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+
+	results, err := catalog.SearchNamespaces(s, "db")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if len(results["production"]) != 1 {
+		t.Fatalf("expected 1 revision, got %d", len(results["production"]))
+	}
+	if results["production"][0].Name != "feature/db" {
+		t.Fatalf("expected name feature/db, got %q", results["production"][0].Name)
+	}
+}
+
+func TestSearchNamespaces_NoMatches(t *testing.T) {
+	s := newStore(t)
+
+	catalog.SavePlan(s, "production", "aaa", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
+
+	results, err := catalog.SearchNamespaces(s, "nonexistent")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results, got %d", len(results))
+	}
+}
+
+func TestSearchNamespaces_EmptyDatabase(t *testing.T) {
+	s := newStore(t)
+
+	results, err := catalog.SearchNamespaces(s, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results, got %d", len(results))
+	}
+}

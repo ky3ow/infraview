@@ -9,13 +9,16 @@ import (
 	"os"
 	"path/filepath"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/ky3ow/infraview/pkg/graph"
+	"github.com/ky3ow/infraview/pkg/storage"
 )
 
 type Server struct {
 	addr        string
 	catalogTmpl *template.Template
 	graphTmpl   *template.Template
+	store       *storage.Store
 }
 
 func absPaths(paths []string) []string {
@@ -26,9 +29,10 @@ func absPaths(paths []string) []string {
 	return abs
 }
 
-func New(addr string) *Server {
+func New(addr string, store *storage.Store) *Server {
 	s := &Server{
-		addr: addr,
+		addr:  addr,
+		store: store,
 	}
 	s.loadTemplates()
 	return s
@@ -281,12 +285,26 @@ func getGraph(namespace, revision string) (*graph.Graph, error) {
 	}
 	defer file.Close()
 
-	return graph.New(file)
+	var plan tfjson.Plan
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&plan); err != nil {
+		return nil, err
+	}
+
+	return graph.New(&plan)
 }
 
 func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
 	// TODO store the submitted plan in DB with namespace/revision metadata.
-	g, err := graph.New(r.Body)
+	var plan tfjson.Plan
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&plan); err != nil {
+		return
+	}
+
+	g, err := graph.New(&plan)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

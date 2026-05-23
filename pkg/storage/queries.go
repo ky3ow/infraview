@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"time"
-
-	"github.com/ky3ow/infraview/pkg/catalog"
 )
 
 // Get or create and get a namespace
@@ -41,46 +39,28 @@ func (s *Store) EnsureNamespace(name string) (*DBNamespace, error) {
 	return &ns, err
 }
 
-// New revision in namespace
-// Naming like git branches - new revision may steal name from another
-// Update revision in place in case of pipeline re-runs on same commit
-func (s *Store) AddRevision(namespaceID int, hash string, name *string, metadata catalog.PlanMetadata) (*DBRevision, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
+// Insert or update a revision.
+// Update in case of pipeline re-runs on same commit.
+func (s *Store) UpsertRevision(namespaceID int, hash string, name *string, creates, updates, deletes int) (*DBRevision, error) {
+	var rev DBRevision
+	var createdAt string
 
-	// If a name is given, unname any OTHER revision with that name
-	if name != nil {
-		_, err = tx.Exec(
-			`UPDATE revisions SET name = NULL WHERE namespace_id = ? AND name = ?`,
-			namespaceID, *name,
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	_, err = tx.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO revisions (namespace_id, hash, name, creates, updates, deletes)
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT (namespace_id, hash) DO UPDATE SET
-			name      = excluded.name,
-			creates   = excluded.creates,
-			updates   = excluded.updates,
-			deletes   = excluded.deletes,
+			name       = excluded.name,
+			creates    = excluded.creates,
+			updates    = excluded.updates,
+			deletes    = excluded.deletes,
 			created_at = CURRENT_TIMESTAMP`,
-		namespaceID, hash, name, metadata.Created, metadata.Updated, metadata.Deleted,
+		namespaceID, hash, name, creates, updates, deletes,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	var rev DBRevision
-	var createdAt string
-
-	err = tx.QueryRow(
+	err = s.db.QueryRow(
 		`SELECT id, namespace_id, name, hash, creates, updates, deletes, created_at
 		 FROM revisions WHERE namespace_id = ? AND hash = ?`,
 		namespaceID, hash,
@@ -89,7 +69,28 @@ func (s *Store) AddRevision(namespaceID int, hash string, name *string, metadata
 		return nil, err
 	}
 
-	if err := tx.Commit(); err != nil {
+	rev.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+	return &rev, err
+}
+
+func (s *Store) ClearRevisionName(namespaceID int, name string) error {
+	_, err := s.db.Exec(
+		`UPDATE revisions SET name = NULL WHERE namespace_id = ? AND name = ?`,
+		namespaceID, name,
+	)
+	return err
+}
+
+func (s *Store) GetRevisionByID(id int) (*DBRevision, error) {
+	var rev DBRevision
+	var createdAt string
+
+	err := s.db.QueryRow(
+		`SELECT id, namespace_id, name, hash, creates, updates, deletes, created_at
+		 FROM revisions WHERE id = ?`,
+		id,
+	).Scan(&rev.ID, &rev.NamespaceID, &rev.Name, &rev.Hash, &rev.Creates, &rev.Updates, &rev.Deletes, &createdAt)
+	if err != nil {
 		return nil, err
 	}
 

@@ -2,6 +2,7 @@ package catalog
 
 import (
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/ky3ow/infraview/pkg/graph"
 	"github.com/ky3ow/infraview/pkg/storage"
 )
 
@@ -31,7 +32,7 @@ func AddRevision(store *storage.Store, namespaceName, hash string, name *string,
 	return store.UpsertRevision(ns.ID, hash, name, metadata.Created, metadata.Updated, metadata.Deleted)
 }
 
-func ExtractPlanMetadata(plan tfjson.Plan) (*PlanMetadata, error) {
+func ExtractPlanMetadata(plan tfjson.Plan) *PlanMetadata {
 	var metadata PlanMetadata
 
 	for _, c := range plan.ResourceChanges {
@@ -51,5 +52,21 @@ func ExtractPlanMetadata(plan tfjson.Plan) (*PlanMetadata, error) {
 		}
 	}
 
-	return &metadata, nil
+	return &metadata
+}
+
+// SavePlan persists a parsed graph into the database under the given
+// namespace/revision. If the revision already exists (same hash), the
+// stored graph is replaced.
+func SavePlan(store *storage.Store, namespaceName, hash string, name *string, metadata PlanMetadata, g *graph.Graph) (*storage.DBRevision, error) {
+	rev, err := AddRevision(store, namespaceName, hash, name, metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := store.SaveGraph(rev.ID, g); err != nil {
+		return nil, err
+	}
+
+	return rev, nil
 }

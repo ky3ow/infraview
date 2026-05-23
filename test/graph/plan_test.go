@@ -5,6 +5,7 @@
 package graph_test
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -344,7 +345,14 @@ func setup(t *testing.T, planPath string) *graph.Graph {
 		t.Errorf("No file: %s", planPath)
 	}
 
-	got, err := graph.New(file)
+	var plan tfjson.Plan
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&plan); err != nil {
+		t.Errorf("%v", err)
+	}
+
+	got, err := graph.New(&plan)
 
 	if err != nil {
 		t.Errorf("%v", err)

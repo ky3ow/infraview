@@ -7,10 +7,8 @@
 package graph
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 
 	tfjson "github.com/hashicorp/terraform-json"
 )
@@ -518,13 +516,8 @@ func walkExpressions(expressions map[string]*tfjson.Expression, handleReference 
 	}
 }
 
-func New(r io.Reader) (*Graph, error) {
-	var plan tfjson.Plan
-
-	decoder := json.NewDecoder(r)
-	if err := decoder.Decode(&plan); err != nil {
-		return nil, err
-	}
+// should really just take plan
+func New(plan *tfjson.Plan) (*Graph, error) {
 
 	root := tfjson.ModuleCall{
 		Module: plan.Config.RootModule,
@@ -538,21 +531,21 @@ func New(r io.Reader) (*Graph, error) {
 
 	// Discover Nodes
 	graph.discoverNodes(&root, ModuleConfig{})
-	graph.discoverDeletedResourceNodes(&plan)
-	graph.discoverInstanceNodes(&plan)
+	graph.discoverDeletedResourceNodes(plan)
+	graph.discoverInstanceNodes(plan)
 
 	// make sure all parents exist
 	graph.ensureModules()
 
 	// Enrich nodes
 	// TODO Move ProcessParams passes here
-	graph.discoverResourceChanges(&plan)
+	graph.discoverResourceChanges(plan)
 	graph.discoverParentState()
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	graph.discoverDeletedResourceEdges(&plan) // call only after enrichments
-	graph.discoverInstanceEdges(&plan)
+	graph.discoverDeletedResourceEdges(plan) // call only after enrichments
+	graph.discoverInstanceEdges(plan)
 	graph.discoverDeletedLoopEdges()
 	graph.promoteTransitiveEdges()
 

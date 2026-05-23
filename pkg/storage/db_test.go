@@ -340,3 +340,73 @@ func TestSaveGraphReplacesOnSecondCall(t *testing.T) {
 		t.Fatalf("expected 0 edges after replace, got %d", len(loaded.Edges))
 	}
 }
+
+func TestGetNamespaces(t *testing.T) {
+	s := newTestStore(t)
+
+	// Initially empty
+	namespaces, err := s.GetNamespaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(namespaces) != 0 {
+		t.Fatalf("expected 0 namespaces, got %d", len(namespaces))
+	}
+
+	// Add some namespaces
+	s.EnsureNamespace("production")
+	s.EnsureNamespace("staging")
+	s.EnsureNamespace("dev")
+
+	namespaces, err = s.GetNamespaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(namespaces) != 3 {
+		t.Fatalf("expected 3 namespaces, got %d", len(namespaces))
+	}
+
+	// Should be ordered by creation time
+	if namespaces[0].Name != "production" {
+		t.Fatalf("first should be production, got %q", namespaces[0].Name)
+	}
+	if namespaces[2].Name != "dev" {
+		t.Fatalf("third should be dev, got %q", namespaces[2].Name)
+	}
+}
+
+func TestGetRevisionsByNamespaceID(t *testing.T) {
+	s := newTestStore(t)
+
+	ns, _ := s.EnsureNamespace("testns")
+
+	// Initially empty
+	revisions, err := s.GetRevisionsByNamespaceID(ns.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(revisions) != 0 {
+		t.Fatalf("expected 0 revisions, got %d", len(revisions))
+	}
+
+	// Add some revisions
+	s.UpsertRevision(ns.ID, "aaa", nil, 1, 0, 0)
+	s.UpsertRevision(ns.ID, "bbb", nil, 2, 1, 0)
+	s.UpsertRevision(ns.ID, "ccc", nil, 0, 0, 1)
+
+	revisions, err = s.GetRevisionsByNamespaceID(ns.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(revisions) != 3 {
+		t.Fatalf("expected 3 revisions, got %d", len(revisions))
+	}
+
+	// Should be newest first (highest ID first)
+	if revisions[0].Hash != "ccc" {
+		t.Fatalf("first should be ccc, got %q", revisions[0].Hash)
+	}
+	if revisions[2].Hash != "aaa" {
+		t.Fatalf("third should be aaa, got %q", revisions[2].Hash)
+	}
+}

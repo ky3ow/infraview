@@ -41,6 +41,7 @@ func (s *Store) EnsureNamespace(name string) (*DBNamespace, error) {
 
 // New revision in namespace
 // Naming like git branches - new revision may steal name from another
+// Update revision in place in case of pipeline re-runs on same commit
 func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevision, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -48,7 +49,7 @@ func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevi
 	}
 	defer tx.Rollback()
 
-	// If a name is given, unname any existing revision with that name
+	// If a name is given, unname any OTHER revision with that name
 	if name != nil {
 		_, err = tx.Exec(
 			`UPDATE revisions SET name = NULL WHERE namespace_id = ? AND name = ?`,
@@ -60,7 +61,14 @@ func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevi
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO revisions (namespace_id, hash, name, creates, updates, deletes) VALUES (?, ?, ?, 0, 0, 0)`,
+		`INSERT INTO revisions (namespace_id, hash, name, creates, updates, deletes)
+		 VALUES (?, ?, ?, 0, 0, 0)
+		 ON CONFLICT (namespace_id, hash) DO UPDATE SET
+			name      = excluded.name,
+			creates   = 0,
+			updates   = 0,
+			deletes   = 0,
+			created_at = CURRENT_TIMESTAMP`,
 		namespaceID, hash, name,
 	)
 	if err != nil {
@@ -72,8 +80,8 @@ func (s *Store) AddRevision(namespaceID int, hash string, name *string) (*DBRevi
 
 	err = tx.QueryRow(
 		`SELECT id, namespace_id, name, hash, creates, updates, deletes, created_at
-		 FROM revisions WHERE namespace_id = ? ORDER BY id DESC LIMIT 1`,
-		namespaceID,
+		 FROM revisions WHERE namespace_id = ? AND hash = ?`,
+		namespaceID, hash,
 	).Scan(&rev.ID, &rev.NamespaceID, &rev.Name, &rev.Hash, &rev.Creates, &rev.Updates, &rev.Deletes, &createdAt)
 	if err != nil {
 		return nil, err

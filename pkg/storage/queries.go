@@ -127,11 +127,15 @@ func (s *Store) SaveGraph(revisionID int, g *graph.Graph) error {
 
 	// Insert nodes
 	for addr, node := range g.Nodes {
+		var parent *string
+		if node.Parent != "" {
+			parent = &node.Parent
+		}
 		_, err = tx.Exec(
 			`INSERT INTO nodes (revision_id, address, name, mode, kind, state, parent_address)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			revisionID, addr, node.Name, string(node.Mode), string(node.Kind),
-			string(node.State), parentOrNil(node.Parent),
+			string(node.State), parent,
 		)
 		if err != nil {
 			return err
@@ -351,7 +355,7 @@ func (s *Store) SearchCatalog(query string) ([]SearchResultRow, error) {
 		 WHERE n.name LIKE '%' || ? || '%'
 		    OR r.hash LIKE '%' || ? || '%'
 		    OR r.name LIKE '%' || ? || '%'
-		 ORDER BY n.id, r.id DESC`,
+		 ORDER BY n.name, r.created_at DESC`,
 		query, query, query,
 	)
 	if err != nil {

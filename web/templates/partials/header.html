@@ -5,10 +5,12 @@
   <nav class="header-nav">
     <a href="/" class="header-nav-link{{if eq .ActivePage "catalog"}} active{{end}}">Catalog</a>
     <a href="/graph" class="header-nav-link{{if eq .ActivePage "graph"}} active{{end}}">Graph</a>
+	{{if not .NoAuth }}
     <div class="header-nav-divider"></div>
     <form method="POST" action="/logout">
       <button type="submit" class="logout-btn">Logout</button>
     </form>
+	{{end}}
   </nav>
 </header>
 {{end}}

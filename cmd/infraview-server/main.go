@@ -13,29 +13,38 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		runServer()
+		runServer(os.Args[1:])
 		return
 	}
 
 	switch os.Args[1] {
 	case "token":
 		runToken(os.Args[2:])
+	case "serve":
+		runServer(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
-		fmt.Fprintln(os.Stderr, "usage: infraview-server [token subcommand]")
+		fmt.Fprintln(os.Stderr, "usage: infraview-server [token|serve]")
 		os.Exit(1)
 	}
 }
 
-func runServer() {
-	addr := ":8080"
+func runServer(args []string) {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	noAuth := fs.Bool("no-auth", false, "disable authentication (local dev only)")
+	addr := fs.String("addr", ":8080", "listen address")
+	fs.Parse(args)
 
 	store, err := storage.New("./infraview.db")
 	if err != nil {
 		log.Fatalf("storage error: %v", err)
 	}
 
-	srv := server.New(addr, store)
+	if *noAuth {
+		log.Println("AUTH DISABLED — THIS IS FOR LOCAL DEVELOPMENT ONLY, NOT FOR PRODUCTION")
+	}
+
+	srv := server.New(*addr, store, *noAuth)
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

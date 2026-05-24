@@ -19,9 +19,11 @@ import (
 const sessionCookieName = "session"
 
 type Server struct {
-	addr        string
-	store       *storage.Store
-	sessions    *auth.SessionStore
+	addr     string
+	store    *storage.Store
+	sessions *auth.SessionStore
+	noAuth   bool
+
 	loginTmpl   *template.Template
 	catalogTmpl *template.Template
 	graphTmpl   *template.Template
@@ -35,11 +37,12 @@ func absPaths(paths []string) []string {
 	return abs
 }
 
-func New(addr string, store *storage.Store) *Server {
+func New(addr string, store *storage.Store, noAuth bool) *Server {
 	s := &Server{
 		addr:     addr,
 		store:    store,
 		sessions: auth.NewSessionStore(),
+		noAuth:   noAuth,
 	}
 	s.loadTemplates()
 	return s
@@ -87,8 +90,14 @@ func (s *Server) Start() error {
 
 // requireApiAuth checks the Authorization: Bearer header against stored tokens.
 // Returns 401 if missing or invalid. Used for programmatic API endpoints.
+// Skipped entirely when noAuth is set.
 func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if s.noAuth {
+			next(w, r)
+			return
+		}
+
 		header := r.Header.Get("Authorization")
 		if header == "" {
 			http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
@@ -114,8 +123,14 @@ func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) h
 
 // requireSession checks for a valid session cookie.
 // Redirects to /login if missing or expired. Used for interactive page routes.
+// Skipped entirely when noAuth is set.
 func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if s.noAuth {
+			next(w, r)
+			return
+		}
+
 		if cookie, err := r.Cookie(sessionCookieName); err == nil {
 			if s.sessions.Get(cookie.Value) != nil {
 				next(w, r)
@@ -129,6 +144,11 @@ func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.noAuth {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
@@ -215,11 +235,13 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		ActivePage string
 		Namespaces []catalog.CatalogResult
 		Query      string
+		NoAuth     bool
 	}{
 		Title:      "Infraview - Catalog",
 		ActivePage: "catalog",
 		Namespaces: namespaces,
 		Query:      query,
+		NoAuth:     s.noAuth,
 	}
 
 	renderTarget := "layout"
@@ -263,10 +285,10 @@ func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Revisions  []catalog.RevisionView
+		Revisions        []catalog.RevisionView
 		SelectedRevision string
 	}{
-		Revisions: revisions,
+		Revisions:        revisions,
 		SelectedRevision: "",
 	}
 
@@ -309,6 +331,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		Revisions         []catalog.RevisionView
 		SelectedNamespace string
 		SelectedRevision  string
+		NoAuth            bool
 	}{
 		Title:             "Infraview - Graph",
 		ActivePage:        "graph",
@@ -317,6 +340,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		Revisions:         revisions,
 		SelectedNamespace: namespace,
 		SelectedRevision:  revision,
+		NoAuth:            s.noAuth,
 	}
 
 	renderTarget := "layout"

@@ -72,8 +72,7 @@ function swapGraphContent(bar) {
   var path = '/graph/' + encodeURIComponent(ns) + '/' + encodeURIComponent(rev);
   htmx.ajax('GET', path, {
     target: '#graph-content',
-    swap: 'outerHTML',
-    pushUrl: path
+    swap: 'outerHTML'
   });
 }
 </script>

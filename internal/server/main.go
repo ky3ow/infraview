@@ -176,6 +176,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 	renderTarget := "layout"
 	if r.Header.Get("HX-Request") == "true" {
 		renderTarget = "content"
+		w.Header().Set("HX-Push-Url", "/graph/"+namespace+"/"+revision)
 	}
 	if err := s.graphTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

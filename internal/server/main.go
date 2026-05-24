@@ -62,7 +62,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /{$}", s.handleCatalog)
 	mux.HandleFunc("GET /graph", s.handleGraph)
 	mux.HandleFunc("GET /graph/{namespace}", s.handleGraphNamespace)
-	mux.HandleFunc("GET /revisions", s.handleGraphRevisions)
+	mux.HandleFunc("GET /namespaces/{namespace}/revisions", s.handleGraphRevisions)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
@@ -122,7 +122,7 @@ func (s *Server) handleGraphNamespace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
-	namespace := r.URL.Query().Get("namespace")
+	namespace := r.PathValue("namespace")
 	if namespace == "" {
 		return
 	}
@@ -135,8 +135,10 @@ func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Revisions  []catalog.RevisionView
+		SelectedRevision string
 	}{
 		Revisions: revisions,
+		SelectedRevision: "",
 	}
 
 	if err := s.graphTmpl.ExecuteTemplate(w, "revision-options", data); err != nil {

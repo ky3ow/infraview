@@ -1,5 +1,7 @@
 {{define "head"}}
 <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>
+<link href="https://unpkg.com/slim-select@latest/dist/slimselect.css" rel="stylesheet"></link>
 <!-- TODO should experiment with ELK algorithm IF ADJUSTING SPACING WORKS -->
 <!-- <script src="https://cdn.jsdelivr.net/npm/elkjs@0.11.1/lib/elk.bundled.min.js"></script> -->
 <!-- <script src="https://cdn.jsdelivr.net/npm/cytoscape-elk@2.3.0/dist/cytoscape-elk.min.js"></script> -->
@@ -8,40 +10,28 @@
 {{define "header-extra"}}
 <div class="graph-selector-bar">
   <div class="selector-field">
-    <label for="namespace-input">Namespace</label>
-    <input id="namespace-input" name="namespace" list="namespace-list"
-      placeholder="Type to filter…" value="{{.SelectedNamespace}}"
-      hx-get="/revisions"
-      hx-target="#revision-list"
-      hx-trigger="input changed delay:150ms"
-      hx-indicator="#revision-indicator"
-      autocomplete="off"
-      required>
-    <datalist id="namespace-list">
-      {{range .Namespaces}}<option value="{{.Name}}">{{end}}
-    </datalist>
+    <label for="namespace-dropdown">Namespace</label>
+    <select id="namespaces-dropdown">
+      {{$ns := .SelectedNamespace}}
+      {{range .Namespaces}}<option value="{{.Name}}" {{if eq .Name $ns}}selected{{end}}>{{end}}
+    </select>
   </div>
 
   <div class="selector-field">
-    <label for="revision-input">Revision</label>
-    <input id="revision-input" name="revision" list="revision-list"
-      placeholder="Select namespace first…" value="{{.SelectedRevision}}"
-      autocomplete="off"
-      required>
-    <datalist id="revision-list">
+    <label for="revisions-dropdown">Revision</label>
+    <select id="revisions-dropdown">
       {{template "revision-options" .}}
-    </datalist>
+    </select>
     <span id="revision-indicator" class="htmx-indicator">…</span>
   </div>
-
-  <button type="button" class="selector-go-btn"
-    hx-on:click="swapGraphContent(this.parentElement)">Go</button>
 </div>
 {{end}}
 
 {{define "revision-options"}}
+{{$rev := .SelectedRevision}}
+<option data-placeholder="true" value="">choose a revision...</option>
 {{range .Revisions}}
-<option value="{{.Hash}}">{{if .Name}}{{.Name}} ({{.Hash}}){{else}}{{.Hash}}{{end}}</option>
+<option value="{{.Hash}}" {{if eq .Hash $rev}}selected{{end}}>{{if .Name}}{{.Name}} ({{.Hash}}){{else}}{{.Hash}}{{end}}</option>
 {{end}}
 {{end}}
 
@@ -65,15 +55,34 @@
 <script type="module" src="/static/main.js"></script>
 <script type="module" src="/static/icons_default.js"></script>
 <script>
-function swapGraphContent(bar) {
-  var ns = bar.querySelector('[name="namespace"]').value;
-  var rev = bar.querySelector('[name="revision"]').value;
-  if (!ns || !rev) return;
-  var path = '/graph/' + encodeURIComponent(ns) + '/' + encodeURIComponent(rev);
-  htmx.ajax('GET', path, {
-    target: '#graph-content',
-    swap: 'outerHTML'
-  });
-}
+var ns = null
+var revisions = new SlimSelect({
+  select: '#revisions-dropdown',
+  events: {
+    afterChange: (o) => {
+      var rev = o[0].value;
+      if (!ns || !rev) return;
+      var path = `/graph/${encodeURIComponent(ns)}/${encodeURIComponent(rev)}`
+      htmx.ajax('GET', path, {
+        target: '#graph-content',
+        swap: 'outerHTML',
+      });
+    }
+  }
+});
+var namespaces = new SlimSelect({
+  select: '#namespaces-dropdown',
+  events: {
+    afterChange: (o) => {
+      ns = o[0].value
+      if (!ns || ns === '') return;
+      htmx.ajax('GET', `/namespaces/${encodeURIComponent(ns)}/revisions`, {
+        target: '#revisions-dropdown'
+      }).then(() => {
+        setTimeout(() => revisions.open(), 100)
+      });
+    },
+  },
+})
 </script>
 {{end}}

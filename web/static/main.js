@@ -412,29 +412,48 @@ function collapseParent(parent) {
 	const descendantIds = new Set(descendants.map(n => n.id()));
 	const parentId = parent.id();
 
+	// What outside nodes is the parent already directly connected to?
+	const parentOutsideTargets = new Set();
+	parent.connectedEdges().forEach(e => {
+		const srcId = e.source().id();
+		const tgtId = e.target().id();
+		if (srcId === parentId && !descendantIds.has(tgtId)) parentOutsideTargets.add(tgtId);
+		if (tgtId === parentId && !descendantIds.has(srcId)) parentOutsideTargets.add(srcId);
+	});
+
+	// Collect all edges that cross the container boundary
 	const externalEdges = descendants.connectedEdges().filter(edge => {
 		const sourceInside = descendantIds.has(edge.source().id());
 		const targetInside = descendantIds.has(edge.target().id());
-
 		return sourceInside !== targetInside;
 	});
 
-	const summaryEdges = externalEdges.map(edge => {
+	// Deduplicate by outside node, skip if parent already has a direct edge
+	const seenOutside = new Set();
+	const summaryEdges = [];
+
+	for (const edge of externalEdges) {
 		const sourceInside = descendantIds.has(edge.source().id());
 		const outsideNode = sourceInside ? edge.target() : edge.source();
+		const outsideId = outsideNode.id();
 
-		return {
+		const key = (sourceInside ? "out:" : "in:") + outsideId;
+		if (seenOutside.has(key)) continue;
+		if (parentOutsideTargets.has(outsideId)) continue;  // parent already covers it
+		seenOutside.add(key);
+
+		summaryEdges.push({
 			group: "edges",
 			data: {
 				id: summaryEdgeId(parentId, edge.source().id(), edge.target().id()),
-				source: sourceInside ? parentId : outsideNode.id(),
-				target: sourceInside ? outsideNode.id() : parentId,
+				source: sourceInside ? parentId : outsideId,
+				target: sourceInside ? outsideId : parentId,
 				type: "summary",
 				originalEdge: edge.id(),
 			},
 			classes: "summary-edge",
-		};
-	});
+		});
+	}
 
 	state.cy.add(summaryEdges);
 

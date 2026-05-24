@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	tfjson "github.com/hashicorp/terraform-json"
@@ -62,10 +61,10 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleCatalog)
 	mux.HandleFunc("GET /graph", s.handleGraph)
-	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
-	mux.HandleFunc("GET /api/v1/states", s.handlePlans)
+	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
+	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.handlePutGraph)
 	mux.HandleFunc("GET /api/catalog/search", s.handleCatalogSearch)
 
 	log.Printf("Listening on %s\n", s.addr)
@@ -73,22 +72,46 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
-	type revisionChangeOverview struct {
+	namespaces, err := catalog.ListNamespaces(s.store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type catalogRevision struct {
+		Hash    string
+		Name    string
 		Created int
 		Updated int
 		Deleted int
 	}
 
-	type catalogRevision struct {
-		SHA     string
-		Branch  string
-		Status  string
-		Changes revisionChangeOverview
-	}
-
 	type catalogNamespace struct {
 		Name      string
 		Revisions []catalogRevision
+	}
+
+	view := make([]catalogNamespace, 0, len(namespaces))
+	for _, ns := range namespaces {
+		revs, err := catalog.ListRevisions(s.store, ns.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		nsView := catalogNamespace{
+			Name:      ns.Name,
+			Revisions: make([]catalogRevision, 0, len(revs)),
+		}
+		for _, rev := range revs {
+			nsView.Revisions = append(nsView.Revisions, catalogRevision{
+				Hash:    rev.Hash,
+				Name:    rev.Name,
+				Created: rev.Summary.Created,
+				Updated: rev.Summary.Updated,
+				Deleted: rev.Summary.Deleted,
+			})
+		}
+		view = append(view, nsView)
 	}
 
 	data := struct {
@@ -98,123 +121,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	}{
 		Title:      "Infraview - Catalog",
 		ActivePage: "catalog",
-		Namespaces: []catalogNamespace{
-			{
-				Name: "production",
-				Revisions: []catalogRevision{
-					{
-						SHA:    "8f4c2a91",
-						Branch: "simple_deps",
-						Status: "applied",
-						Changes: revisionChangeOverview{
-							Created: 3,
-							Updated: 1,
-							Deleted: 0,
-						},
-					},
-				},
-			},
-			{
-				Name: "loops",
-				Revisions: []catalogRevision{
-					{
-						SHA:    "1",
-						Branch: "12-create-count",
-						Status: "applied",
-						Changes: revisionChangeOverview{
-							Created: 0,
-							Updated: 0,
-							Deleted: 0,
-						},
-					},
-					{
-						SHA:    "2",
-						Branch: "13-create-foreach",
-						Status: "applied",
-						Changes: revisionChangeOverview{
-							Created: 0,
-							Updated: 0,
-							Deleted: 0,
-						},
-					},
-					{
-						SHA:    "3",
-						Branch: "14-delete-count",
-						Status: "applied",
-						Changes: revisionChangeOverview{
-							Created: 0,
-							Updated: 0,
-							Deleted: 0,
-						},
-					},
-				},
-			},
-			{
-				Name: "modules",
-				Revisions: []catalogRevision{
-					{
-						SHA: "05",
-						Branch: "05-module-vars",
-						Status: "applied",
-						Changes: revisionChangeOverview{},
-					},
-					{
-						SHA: "07",
-						Branch: "07-module-outputs",
-						Status: "applied",
-						Changes: revisionChangeOverview{},
-					},
-					{
-						SHA: "08",
-						Branch: "08-complex-vars",
-						Status: "applied",
-						Changes: revisionChangeOverview{},
-					},
-					{
-						SHA: "10",
-						Branch: "10-module-deletions",
-						Status: "applied",
-						Changes: revisionChangeOverview{},
-					},
-				},
-			},
-			{
-				Name: "staging",
-				Revisions: []catalogRevision{
-					{
-						SHA:    "c71b03de",
-						Branch: "feature/db-resize",
-						Status: "pending",
-						Changes: revisionChangeOverview{
-							Created: 1,
-							Updated: 4,
-							Deleted: 0,
-						},
-					},
-					{
-						SHA: "09",
-						Status: "applied",
-					},
-					{
-						SHA: "15",
-						Status: "applied",
-					},
-					{
-						SHA: "99",
-						Status: "applied",
-					},
-					{
-						SHA:    "1a9e6b42",
-						Status: "failed",
-						Changes: revisionChangeOverview{
-							Created: 0,
-							Updated: 2,
-							Deleted: 5,
-						},
-					},
-				},
-			},
-		},
+		Namespaces: view,
 	}
 
 	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -223,8 +130,21 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	// TODO redirect to /graph/{latest_namespace}/{latest_revision} once catalog metadata is stored.
-	http.Redirect(w,r, "/graph/modules/05", http.StatusSeeOther)
+	namespaces, err := catalog.ListNamespaces(s.store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(namespaces) == 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	revs, err := catalog.ListRevisions(s.store, namespaces[0].ID)
+	if err != nil || len(revs) == 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/graph/"+namespaces[0].Name+"/"+revs[0].Hash, http.StatusSeeOther)
 }
 
 func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
@@ -256,87 +176,57 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getGraph(namespace, revision string) (*graph.Graph, error) {
-	// TODO replace this shim with a namespace/revision lookup backed by persisted plans.
-	_ = namespace
-
-	plans := map[string]string{
-		"8f4c2a91": "test/graph/03-simple-dependencies/plan.json",
-		"c71b03de": "test/graph/02-simple-create-update-delete/plan.json",
-		"1a9e6b42": "test/graph/11-deletion-edges/plan.json",
-		"1": "test/graph/12-create-count/plan.json",
-		"2": "test/graph/13-create-foreach/plan.json",
-		"3": "test/graph/14-delete-count/plan.json",
-		"05": "test/graph/05-module-vars/plan.json",
-		"07": "test/graph/07-module-outputs/plan.json",
-		"08": "test/graph/08-complex-vars/plan.json",
-		"09": "test/graph/09-data-resources/plan.json",
-		"10": "test/graph/10-module-deletions/plan.json",
-		"15": "test/graph/15-test-collapse/plan.json",
-		"99": "test/graph/99-hard/plan.json",
+func (s *Server) handlePutGraph(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	planPath, ok := plans[revision]
-	if !ok {
-		return nil, os.ErrNotExist
-	}
+	namespace := r.PathValue("namespace")
+	revision := r.PathValue("revision")
 
-	file, err := os.Open(planPath)
-	if err != nil {
-		return nil, err
+	var name *string
+	if n := r.URL.Query().Get("name"); n != "" {
+		name = &n
 	}
-	defer file.Close()
 
 	var plan tfjson.Plan
-
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&plan); err != nil {
-		return nil, err
-	}
-
-	return graph.New(&plan)
-}
-
-func (s *Server) handlePlans(w http.ResponseWriter, r *http.Request) {
-	// TODO store the submitted plan in DB with namespace/revision metadata.
-	var plan tfjson.Plan
-
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&plan); err != nil {
+		http.Error(w, "invalid terraform plan json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	g, err := graph.New(&plan)
-
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "failed to build graph: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	metadata := catalog.ExtractPlanMetadata(plan)
+
+	rev, err := catalog.SavePlan(s.store, namespace, revision, name, *metadata, g)
+	if err != nil {
+		http.Error(w, "failed to save plan", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
-	jsonData, err := json.Marshal(g)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("Error parsing plan %v", err)
-		return
-	}
-
-	_, err = w.Write(jsonData)
-
-	if err != nil {
-		log.Printf("Error writing plan response %v", err)
-	}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(rev)
 }
 
 func (s *Server) handleCatalogSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 
-	results, err := catalog.SearchNamespaces(s.store, query)
+	results, err := catalog.SearchCatalog(s.store, query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if results == nil {
+		results = make(map[string][]catalog.RevisionView)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

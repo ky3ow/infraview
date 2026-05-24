@@ -57,6 +57,23 @@ function init() {
 	applyFilters();
 }
 
+function cleanup() {
+	if (!state.cy) return;
+	if (!state.cy) return;
+
+	state.cy.destroy();
+	state.cy = null;
+
+	if (state.pulseInterval) {
+		clearInterval(state.pulseInterval);
+		state.pulseInterval = null;
+	}
+
+	closeNodeDetails();
+	state.graph = null;
+	state.activeFilters = null;
+}
+
 function escapeSvgText(value) {
 	return String(value ?? "")
 		.replaceAll("&", "&amp;")
@@ -639,5 +656,12 @@ function getGraphStyles() {
 		},
 	]
 }
+
+document.addEventListener("htmx:afterSwap", (e) => {
+	if (e.target.id === "graph-content") {
+		cleanup();
+		init();
+	}
+});
 
 init();

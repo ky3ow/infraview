@@ -7,8 +7,10 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/ky3ow/infraview/pkg/auth"
 	"github.com/ky3ow/infraview/pkg/catalog"
 	"github.com/ky3ow/infraview/pkg/graph"
 	"github.com/ky3ow/infraview/pkg/storage"
@@ -66,11 +68,39 @@ func (s *Server) Start() error {
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
-	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.handlePutGraph)
+	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.requireWriteToken(s.handlePutGraph))
 	mux.HandleFunc("GET /api/catalog/search", s.handleCatalogSearch)
 
 	log.Printf("Listening on %s\n", s.addr)
 	return http.ListenAndServe(s.addr, mux)
+}
+
+// requireWriteToken is middleware that extracts a Bearer token from the
+// Authorization header, hashes it, and checks that a matching write token
+// exists in the store.
+func (s *Server) requireWriteToken(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
+			return
+		}
+
+		raw := strings.TrimPrefix(authHeader, "Bearer ")
+		if raw == authHeader {
+			http.Error(w, "unauthorized: expected Bearer token", http.StatusUnauthorized)
+			return
+		}
+
+		t := auth.FromRaw(raw, auth.Write)
+		_, err := s.store.FindTokenByHash(t.Hash())
+		if err != nil {
+			http.Error(w, "unauthorized: invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		next(w, r)
+	}
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {

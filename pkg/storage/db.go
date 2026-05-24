@@ -60,6 +60,13 @@ CREATE TABLE IF NOT EXISTS edges (
 	type         TEXT    NOT NULL,
 	PRIMARY KEY (revision_id, from_address, to_address)
 );
+
+CREATE TABLE IF NOT EXISTS tokens (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	type       TEXT NOT NULL CHECK(type IN ('read', 'write')),
+	hash       TEXT NOT NULL UNIQUE,
+	created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+);
 `
 
 func New(location string) (*Store, error) {

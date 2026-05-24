@@ -46,3 +46,10 @@ type DBEdge struct {
 	ToAddress   string
 	Type        graph.EdgeType
 }
+
+type DBToken struct {
+	ID        int
+	Type      string
+	Hash      string
+	CreatedAt time.Time
+}

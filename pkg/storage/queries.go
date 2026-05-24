@@ -478,6 +478,33 @@ func (s *Store) SearchCatalog(query string) ([]SearchResultRow, error) {
 	return results, rows.Err()
 }
 
+func (s *Store) DeleteTokensByType(tokenType string) error {
+	_, err := s.db.Exec(`DELETE FROM tokens WHERE type = ?`, tokenType)
+	return err
+}
+
+func (s *Store) CreateToken(tokenType, hash string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO tokens (type, hash) VALUES (?, ?)`,
+		tokenType, hash,
+	)
+	return err
+}
+
+func (s *Store) FindTokenByHash(hash string) (*DBToken, error) {
+	var t DBToken
+	var createdAt string
+	err := s.db.QueryRow(
+		`SELECT id, type, hash, created_at FROM tokens WHERE hash = ?`,
+		hash,
+	).Scan(&t.ID, &t.Type, &t.Hash, &createdAt)
+	if err != nil {
+		return nil, err
+	}
+	t.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+	return &t, err
+}
+
 // parentOrNil returns nil for empty parent so it stores as NULL.
 func parentOrNil(p string) *string {
 	if p == "" {

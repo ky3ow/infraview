@@ -66,7 +66,7 @@ func TestEnsureTables(t *testing.T) {
 func TestEnsureNamespace(t *testing.T) {
 	s := newTestStore(t)
 
-	// First call — should create
+	// First call - should create
 	ns1, err := s.EnsureNamespace("production")
 	if err != nil {
 		t.Fatalf("EnsureNamespace(production): %v", err)
@@ -79,7 +79,7 @@ func TestEnsureNamespace(t *testing.T) {
 	}
 	id1 := ns1.ID
 
-	// Second call — should return existing
+	// Second call - should return existing
 	ns2, err := s.EnsureNamespace("production")
 	if err != nil {
 		t.Fatalf("EnsureNamespace(production) again: %v", err)
@@ -141,7 +141,7 @@ func TestUpsertRevisionSameRow(t *testing.T) {
 		t.Fatalf("first insert: %v", err)
 	}
 
-	// Upsert same hash — should update in place, not create a new row
+	// Upsert same hash - should update in place, not create a new row
 	rev2, err := s.UpsertRevision(ns.ID, "aaa", nil, 5, 3, 2)
 	if err != nil {
 		t.Fatalf("upsert: %v", err)
@@ -303,7 +303,7 @@ func TestSaveGraphReplacesOnSecondCall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// First save — 2 nodes, 1 edge
+	// First save - 2 nodes, 1 edge
 	g1 := &graph.Graph{
 		Nodes: map[string]graph.Node{
 			"a": {Kind: graph.ResourceNode, Name: "a", Address: "a"},
@@ -315,7 +315,7 @@ func TestSaveGraphReplacesOnSecondCall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Second save — 1 node, 0 edges (replace entirely)
+	// Second save - 1 node, 0 edges (replace entirely)
 	g2 := &graph.Graph{
 		Nodes: map[string]graph.Node{
 			"c": {Kind: graph.ResourceNode, Name: "c", Address: "c"},

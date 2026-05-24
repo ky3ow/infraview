@@ -496,7 +496,7 @@ function applyFilters() {
 	for (const [filterState, visible] of Object.entries(state.activeFilters)) {
 		if (!visible) {
 			state.cy.nodes(`[state="${filterState}"]`).forEach(n => {
-				// Modules/loops with modify state are exempt — never hidden
+				// Modules/loops with modify state are exempt - never hidden
 				if (filterState === "modify" && CONTAINER_KINDS.has(n.data("kind"))) return;
 				ownHidden.add(n.id());
 			});

@@ -323,13 +323,13 @@ func TestDeleteCount(t *testing.T) {
 func TestTransitiveEdgeCollapse(t *testing.T) {
 	got := setup(t, "15-test-collapse/plan.json")
 
-	// Chain edges — indispensable, should be direct
+	// Chain edges - indispensable, should be direct
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.two", "direct", "direct first dependency")
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.two", "tfcoremock_simple_resource.three", "direct", "direct first dependency")
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.three", "tfcoremock_simple_resource.four", "direct", "direct first dependency")
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.three", "tfcoremock_simple_resource.also_four", "direct", "direct first dependency")
 
-	// Shortcut edges — covered by chain, should stay transitive
+	// Shortcut edges - covered by chain, should stay transitive
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.three", "transitive", "shortcut one->three should stay transitive")
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.four", "transitive", "transitive descendant")
 	expectEdgeOfType(t, got, "tfcoremock_simple_resource.one", "tfcoremock_simple_resource.also_four", "transitive", "transitive descendant")

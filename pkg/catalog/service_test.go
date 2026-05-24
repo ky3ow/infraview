@@ -58,7 +58,7 @@ func TestAddRevisionNameSteals(t *testing.T) {
 		t.Fatalf("expected name %q, got %q", "main", rev1.Name)
 	}
 
-	// Same name, different hash — should steal
+	// Same name, different hash - should steal
 	name2 := "main"
 	rev2, err := catalog.AddRevision(s, "testns", "bbb", &name2, catalog.PlanMetadata{})
 	if err != nil {
@@ -86,7 +86,7 @@ func TestAddRevisionUpsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Same hash — should update in place
+	// Same hash - should update in place
 	rev2, err := catalog.AddRevision(s, "testns", "aaa", nil, catalog.PlanMetadata{Created: 5})
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestAddRevisionNoCrossNamespaceSteal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Same name in different namespace — should NOT steal
+	// Same name in different namespace - should NOT steal
 	name2 := "main"
 	rev2, err := catalog.AddRevision(s, "ns2", "bbb", &name2, catalog.PlanMetadata{})
 	if err != nil {

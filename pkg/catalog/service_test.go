@@ -243,7 +243,7 @@ func TestGetRevisionGraph(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_EmptyQuery(t *testing.T) {
+func TestSearchCatalog_EmptyQuery(t *testing.T) {
 	s := newStore(t)
 
 	// Seed data
@@ -252,7 +252,7 @@ func TestSearchNamespaces_EmptyQuery(t *testing.T) {
 	catalog.SavePlan(s, "production", "bbb222", nil, catalog.PlanMetadata{Updated: 1}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "staging", "ccc333", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 
-	results, err := catalog.SearchNamespaces(s, "")
+	results, err := catalog.SearchCatalog(s, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,14 +272,14 @@ func TestSearchNamespaces_EmptyQuery(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_ByNamespaceName(t *testing.T) {
+func TestSearchCatalog_ByNamespaceName(t *testing.T) {
 	s := newStore(t)
 
 	catalog.SavePlan(s, "production", "aaa", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "production", "bbb", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "staging", "ccc", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 
-	results, err := catalog.SearchNamespaces(s, "prod")
+	results, err := catalog.SearchCatalog(s, "prod")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,14 +296,14 @@ func TestSearchNamespaces_ByNamespaceName(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_ByHash(t *testing.T) {
+func TestSearchCatalog_ByHash(t *testing.T) {
 	s := newStore(t)
 
 	catalog.SavePlan(s, "production", "deadbeef", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "production", "abc123", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "staging", "feedface", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 
-	results, err := catalog.SearchNamespaces(s, "dead")
+	results, err := catalog.SearchCatalog(s, "dead")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestSearchNamespaces_ByHash(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_ByRevisionName(t *testing.T) {
+func TestSearchCatalog_ByRevisionName(t *testing.T) {
 	s := newStore(t)
 
 	name1 := "main"
@@ -331,7 +331,7 @@ func TestSearchNamespaces_ByRevisionName(t *testing.T) {
 	catalog.SavePlan(s, "production", "bbb", &name2, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 	catalog.SavePlan(s, "staging", "ccc", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 
-	results, err := catalog.SearchNamespaces(s, "db")
+	results, err := catalog.SearchCatalog(s, "db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,12 +347,12 @@ func TestSearchNamespaces_ByRevisionName(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_NoMatches(t *testing.T) {
+func TestSearchCatalog_NoMatches(t *testing.T) {
 	s := newStore(t)
 
 	catalog.SavePlan(s, "production", "aaa", nil, catalog.PlanMetadata{}, &graph.Graph{Nodes: map[string]graph.Node{}})
 
-	results, err := catalog.SearchNamespaces(s, "nonexistent")
+	results, err := catalog.SearchCatalog(s, "nonexistent")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,10 +362,10 @@ func TestSearchNamespaces_NoMatches(t *testing.T) {
 	}
 }
 
-func TestSearchNamespaces_EmptyDatabase(t *testing.T) {
+func TestSearchCatalog_EmptyDatabase(t *testing.T) {
 	s := newStore(t)
 
-	results, err := catalog.SearchNamespaces(s, "")
+	results, err := catalog.SearchCatalog(s, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -148,7 +148,7 @@ func ListRevisions(store *storage.Store, namespaceID int) ([]RevisionView, error
 	return res, nil
 }
 
-func SearchNamespaces(store *storage.Store, query string) (map[string][]RevisionView, error) {
+func SearchCatalog(store *storage.Store, query string) (map[string][]RevisionView, error) {
 	rows, err := store.SearchCatalog(query)
 	if err != nil {
 		return nil, err

@@ -2,14 +2,12 @@
 <div class="catalog-page">
   <h1>Catalog</h1>
 
-  <form class="catalog-search" action="/" method="get">
-	  <input type="search" value="{{.Query}}" name="q" placeholder="Search namespaces and revisions" aria-label="Search namespaces and revisions">
+  <form class="catalog-search" hx-get="/" hx-target="#catalog-namespaces" hx-trigger="input changed delay:300ms, search">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Search namespaces and revisions" aria-label="Search namespaces and revisions">
   </form>
 
   <div id="catalog-namespaces" class="catalog-namespaces">
-    {{range .Namespaces}}
-      {{template "catalog-namespace" .}}
-    {{end}}
+      {{template "catalog-namespaces" .}}
   </div>
 </div>
 {{end}}

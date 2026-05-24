@@ -15,10 +15,10 @@ import (
 )
 
 type Server struct {
-	addr        string
-	catalogTmpl *template.Template
-	graphTmpl   *template.Template
-	store       *storage.Store
+	addr               string
+	catalogTmpl        *template.Template
+	graphTmpl          *template.Template
+	store              *storage.Store
 }
 
 func absPaths(paths []string) []string {
@@ -47,7 +47,7 @@ func (s *Server) loadTemplates() {
 	catalog := append([]string{}, base...)
 	catalog = append(catalog, absPaths([]string{
 		"web/templates/catalog.html",
-		"web/templates/partials/catalog_namespace.html",
+		"web/templates/partials/catalog_namespaces.html",
 	})...)
 
 	graph := append([]string{}, base...)
@@ -91,7 +91,11 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		Query:      query,
 	}
 
-	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {
+	renderTarget := "layout"
+	if r.Header.Get("HX-Request") == "true" {
+		renderTarget = "catalog-namespaces"
+	}
+	if err := s.catalogTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

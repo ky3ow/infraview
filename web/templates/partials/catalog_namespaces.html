@@ -1,4 +1,5 @@
-{{define "catalog-namespace"}}
+{{define "catalog-namespaces"}}
+{{range .Namespaces}}
 <section class="catalog-namespace">
   <header class="namespace-header">
     <h2>{{.Name}}</h2>
@@ -24,4 +25,5 @@
     {{end}}
   </ul>
 </section>
+{{end}}
 {{end}}

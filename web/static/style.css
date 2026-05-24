@@ -521,3 +521,36 @@ body {
 .htmx-request.htmx-indicator {
   display: inline;
 }
+
+.header-nav-divider {
+  width: 1px;
+  height: 20px;
+  background: #dcdfe3;
+  align-self: center;
+  margin: 0 0.5rem;
+}
+
+.logout-form {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.logout-btn {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  line-height: inherit;
+  color: #b42318;
+  background: transparent;
+}
+
+.logout-btn:hover {
+  background: #ffeeee;
+}

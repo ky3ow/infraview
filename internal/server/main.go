@@ -16,11 +16,15 @@ import (
 	"github.com/ky3ow/infraview/pkg/storage"
 )
 
+const sessionCookieName = "session"
+
 type Server struct {
-	addr               string
-	catalogTmpl        *template.Template
-	graphTmpl          *template.Template
-	store              *storage.Store
+	addr        string
+	store       *storage.Store
+	sessions    *auth.SessionStore
+	loginTmpl   *template.Template
+	catalogTmpl *template.Template
+	graphTmpl   *template.Template
 }
 
 func absPaths(paths []string) []string {
@@ -33,8 +37,9 @@ func absPaths(paths []string) []string {
 
 func New(addr string, store *storage.Store) *Server {
 	s := &Server{
-		addr:  addr,
-		store: store,
+		addr:     addr,
+		store:    store,
+		sessions: auth.NewSessionStore(),
 	}
 	s.loadTemplates()
 	return s
@@ -57,27 +62,32 @@ func (s *Server) loadTemplates() {
 
 	s.catalogTmpl = template.Must(template.ParseFiles(catalog...))
 	s.graphTmpl = template.Must(template.ParseFiles(graph...))
+	s.loginTmpl = template.Must(template.ParseFiles(
+		absPaths([]string{"web/templates/login.html"})...,
+	))
 }
 
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.handleCatalog)
-	mux.HandleFunc("GET /graph", s.handleGraph)
-	mux.HandleFunc("GET /graph/{namespace}", s.handleGraphNamespace)
-	mux.HandleFunc("GET /namespaces/{namespace}/revisions", s.handleGraphRevisions)
+	mux.HandleFunc("GET /login", s.handleLogin)
+	mux.HandleFunc("POST /login", s.handleLoginSubmit)
+	mux.HandleFunc("POST /logout", s.handleLogout)
+	mux.HandleFunc("GET /{$}", s.requireSession(s.handleCatalog))
+	mux.HandleFunc("GET /graph", s.requireSession(s.handleGraph))
+	mux.HandleFunc("GET /graph/{namespace}", s.requireSession(s.handleGraphNamespace))
+	mux.HandleFunc("GET /namespaces/{namespace}/revisions", s.requireSession(s.handleGraphRevisions))
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
-	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
-	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.withAuth(auth.Write, s.handlePutGraph))
-	mux.HandleFunc("GET /api/catalog/search", s.handleCatalogSearch)
+	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.requireSession(s.handleRevisionGraph))
+	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.requireApiAuth(auth.Write, s.handlePutGraph))
 
 	log.Printf("Listening on %s\n", s.addr)
 	return http.ListenAndServe(s.addr, mux)
 }
 
-// withAuth extracts a Bearer token from the Authorization header,
-// hashes it, and verifies a matching token of the required type exists.
-func (s *Server) withAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
+// requireApiAuth checks the Authorization: Bearer header against stored tokens.
+// Returns 401 if missing or invalid. Used for programmatic API endpoints.
+func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		if header == "" {
@@ -100,6 +110,96 @@ func (s *Server) withAuth(requiredType auth.Type, next http.HandlerFunc) http.Ha
 
 		next(w, r)
 	}
+}
+
+// requireSession checks for a valid session cookie.
+// Redirects to /login if missing or expired. Used for interactive page routes.
+func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if cookie, err := r.Cookie(sessionCookieName); err == nil {
+			if s.sessions.Get(cookie.Value) != nil {
+				next(w, r)
+				return
+			}
+		}
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	}
+}
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Already have a valid session? Redirect to catalog.
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		if s.sessions.Get(cookie.Value) != nil {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+	}
+
+	s.loginTmpl.ExecuteTemplate(w, "layout", nil)
+}
+
+func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	rawToken := r.FormValue("token")
+	if rawToken == "" {
+		s.loginTmpl.ExecuteTemplate(w, "layout", "token required")
+		return
+	}
+
+	t := auth.FromRaw(rawToken, auth.Read)
+	tok, err := s.store.FindTokenByHash(t.Hash())
+	if err != nil {
+		s.loginTmpl.ExecuteTemplate(w, "layout", "invalid token")
+		return
+	}
+
+	sess := s.sessions.Create(auth.Type(tok.Type))
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    sess.ID,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   int(auth.SessionTTL.Seconds()),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		s.sessions.Delete(cookie.Value)
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
@@ -267,21 +367,4 @@ func (s *Server) handlePutGraph(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(rev)
-}
-
-func (s *Server) handleCatalogSearch(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-
-	results, err := catalog.SearchCatalog(s.store, query)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if results == nil {
-		results = []catalog.CatalogResult{}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
 }

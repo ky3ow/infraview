@@ -20,7 +20,7 @@ body {
   border-bottom: 1px solid #e0e0e0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0 1rem;
   z-index: 100;
 }
@@ -34,6 +34,7 @@ body {
 .header-nav {
   display: flex;
   gap: 0.25rem;
+  margin-left: auto;
 }
 
 .header-nav-link {
@@ -462,4 +463,70 @@ body {
 
 .value-null {
   color: #94a3b8;
+}
+
+/* Graph selector bar (inside header) */
+.graph-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.75rem;
+}
+
+.selector-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.selector-field label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #888;
+  white-space: nowrap;
+}
+
+.selector-field input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.82rem;
+  background: #fff;
+  width: 180px;
+  transition: border-color 0.15s;
+}
+
+.selector-field input:focus {
+  outline: none;
+  border-color: #5560f0;
+  box-shadow: 0 0 0 2px rgba(85, 96, 240, 0.15);
+}
+
+.selector-go-btn {
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 5px;
+  background: #5560f0;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.selector-go-btn:hover {
+  background: #4348d4;
+}
+
+.htmx-indicator {
+  display: none;
+  font-size: 0.75rem;
+  color: #667085;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline;
 }

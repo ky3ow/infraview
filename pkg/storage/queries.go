@@ -285,6 +285,22 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 	return g, nil
 }
 
+// GetNamespaceByName returns a namespace by name.
+// Returns sql.ErrNoRows if not found.
+func (s *Store) GetNamespaceByName(name string) (*DBNamespace, error) {
+	var ns DBNamespace
+	var createdAt string
+
+	err := s.db.QueryRow("SELECT id, name, created_at FROM namespaces WHERE name = ?", name).
+		Scan(&ns.ID, &ns.Name, &createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	ns.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+	return &ns, err
+}
+
 // GetNamespaces returns all namespaces ordered by creation time.
 func (s *Store) GetNamespaces() ([]DBNamespace, error) {
 	rows, err := s.db.Query(`SELECT id, name, created_at FROM namespaces ORDER BY created_at`)
@@ -316,6 +332,38 @@ func (s *Store) GetRevisionsByNamespaceID(namespaceID int) ([]DBRevision, error)
 		`SELECT id, namespace_id, name, hash, creates, updates, deletes, created_at
 		 FROM revisions WHERE namespace_id = ? ORDER BY id DESC`,
 		namespaceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var revisions []DBRevision
+	for rows.Next() {
+		var rev DBRevision
+		var createdAt string
+		if err := rows.Scan(&rev.ID, &rev.NamespaceID, &rev.Name, &rev.Hash, &rev.Creates, &rev.Updates, &rev.Deletes, &createdAt); err != nil {
+			return nil, err
+		}
+		rev.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)
+		if err != nil {
+			return nil, err
+		}
+		revisions = append(revisions, rev)
+	}
+	return revisions, rows.Err()
+}
+
+// GetRevisionsByNamespaceName returns all revisions for a namespace given by name,
+// newest first.
+func (s *Store) GetRevisionsByNamespaceName(name string) ([]DBRevision, error) {
+	rows, err := s.db.Query(
+		`SELECT r.id, r.namespace_id, r.name, r.hash, r.creates, r.updates, r.deletes, r.created_at
+		 FROM revisions r
+		 JOIN namespaces ns ON ns.id = r.namespace_id
+		 WHERE ns.name = ?
+		 ORDER BY r.id DESC`,
+		name,
 	)
 	if err != nil {
 		return nil, err

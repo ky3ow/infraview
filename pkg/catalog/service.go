@@ -154,6 +154,23 @@ func ListRevisions(store *storage.Store, namespaceID int) ([]RevisionView, error
 	return res, nil
 }
 
+func ListRevisionsByName(store *storage.Store, namespaceName string) ([]RevisionView, error) {
+	revs, err := store.GetRevisionsByNamespaceName(namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]RevisionView, 0, len(revs))
+
+	for _, r := range revs {
+		view := RevisionView{}
+		view.fromDB(&r)
+		res = append(res, view)
+	}
+
+	return res, nil
+}
+
 func SearchCatalog(store *storage.Store, query string) ([]CatalogResult, error) {
 	rows, err := store.SearchCatalog(query)
 	if err != nil {

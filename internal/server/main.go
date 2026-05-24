@@ -61,6 +61,7 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleCatalog)
 	mux.HandleFunc("GET /graph", s.handleGraph)
+	mux.HandleFunc("GET /graph/revisions", s.handleGraphRevisions)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
@@ -105,6 +106,29 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/graph/modules/05", http.StatusSeeOther)
 }
 
+func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
+	namespace := r.URL.Query().Get("namespace")
+	if namespace == "" {
+		return
+	}
+
+	revisions, err := catalog.ListRevisionsByName(s.store, namespace)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Revisions  []catalog.RevisionView
+	}{
+		Revisions: revisions,
+	}
+
+	if err := s.graphTmpl.ExecuteTemplate(w, "revision-options", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 	namespace := r.PathValue("namespace")
 	revision := r.PathValue("revision")
@@ -119,14 +143,34 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nsList, err := catalog.ListNamespaces(s.store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	revisions, err := catalog.ListRevisionsByName(s.store, namespace)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := struct {
-		Title      string
-		ActivePage string
-		Graph      graph.Graph
+		Title             string
+		ActivePage        string
+		Graph             graph.Graph
+		Namespaces        []catalog.NamespaceView
+		Revisions         []catalog.RevisionView
+		SelectedNamespace string
+		SelectedRevision  string
 	}{
-		Title:      "Infraview - Graph",
-		ActivePage: "graph",
-		Graph:      *graphData,
+		Title:             "Infraview - Graph",
+		ActivePage:        "graph",
+		Graph:             *graphData,
+		Namespaces:        nsList,
+		Revisions:         revisions,
+		SelectedNamespace: namespace,
+		SelectedRevision:  revision,
 	}
 
 	if err := s.graphTmpl.ExecuteTemplate(w, "layout", data); err != nil {

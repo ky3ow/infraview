@@ -173,7 +173,11 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		SelectedRevision:  revision,
 	}
 
-	if err := s.graphTmpl.ExecuteTemplate(w, "layout", data); err != nil {
+	renderTarget := "layout"
+	if r.Header.Get("HX-Request") == "true" {
+		renderTarget = "content"
+	}
+	if err := s.graphTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

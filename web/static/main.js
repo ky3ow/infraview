@@ -1,12 +1,12 @@
 import { html, render } from 'https://unpkg.com/lighterhtml?module';
 import dagre from 'https://cdn.jsdelivr.net/npm/cytoscape-dagre@3.0.0/+esm';
-
 import icons from "./icons_default.js";
 
-const sidebar = document.getElementById("node-details-sidebar");
+cytoscape.use(dagre);
 
+const sidebar = document.getElementById("node-details-sidebar");
 const graph = JSON.parse(document.getElementById("initial-graph").text);
-console.log(graph)
+
 const RESOURCE_CARD_WIDTH = 340;
 const RESOURCE_CARD_HEIGHT = 96;
 const stateColors = {
@@ -121,7 +121,6 @@ for (const edge of graph.edges) {
 	})
 }
 
-cytoscape.use(dagre);
 const cy = cytoscape({
 	container: document.getElementById("graph"),
 	wheelSensitivity: 0.3,

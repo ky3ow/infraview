@@ -7,7 +7,7 @@
 {{end}}
 
 {{define "header-extra"}}
-<form class="graph-selector-bar" action="/graph" method="get">
+<div class="graph-selector-bar">
   <div class="selector-field">
     <label for="namespace-input">Namespace</label>
     <input id="namespace-input" name="namespace" list="namespace-list"
@@ -34,7 +34,10 @@
     </datalist>
     <span id="revision-indicator" class="htmx-indicator">…</span>
   </div>
-</form>
+
+  <button type="button" class="selector-go-btn"
+    hx-on:click="swapGraphContent(this.parentElement)">Go</button>
+</div>
 {{end}}
 
 {{define "revision-options"}}
@@ -44,7 +47,7 @@
 {{end}}
 
 {{define "content"}}
-<div class="graph-layout">
+<div id="graph-content" class="graph-layout">
   <aside class="sidebar">
     <div class="sidebar-content">
       <div id="state-filters"></div>
@@ -61,4 +64,17 @@
 <script type="module" src="https://unpkg.com/lighterhtml?module"></script>
 <script type="module" src="/static/main.js"></script>
 <script type="module" src="/static/icons_default.js"></script>
+<script>
+function swapGraphContent(bar) {
+  var ns = bar.querySelector('[name="namespace"]').value;
+  var rev = bar.querySelector('[name="revision"]').value;
+  if (!ns || !rev) return;
+  var path = '/graph/' + encodeURIComponent(ns) + '/' + encodeURIComponent(rev);
+  htmx.ajax('GET', path, {
+    target: '#graph-content',
+    swap: 'outerHTML',
+    pushUrl: path
+  });
+}
+</script>
 {{end}}

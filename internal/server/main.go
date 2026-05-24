@@ -68,31 +68,30 @@ func (s *Server) Start() error {
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
-	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.requireWriteToken(s.handlePutGraph))
+	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.withAuth(auth.Write, s.handlePutGraph))
 	mux.HandleFunc("GET /api/catalog/search", s.handleCatalogSearch)
 
 	log.Printf("Listening on %s\n", s.addr)
 	return http.ListenAndServe(s.addr, mux)
 }
 
-// requireWriteToken is middleware that extracts a Bearer token from the
-// Authorization header, hashes it, and checks that a matching write token
-// exists in the store.
-func (s *Server) requireWriteToken(next http.HandlerFunc) http.HandlerFunc {
+// withAuth extracts a Bearer token from the Authorization header,
+// hashes it, and verifies a matching token of the required type exists.
+func (s *Server) withAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
+		header := r.Header.Get("Authorization")
+		if header == "" {
 			http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
 			return
 		}
 
-		raw := strings.TrimPrefix(authHeader, "Bearer ")
-		if raw == authHeader {
+		raw := strings.TrimPrefix(header, "Bearer ")
+		if raw == header {
 			http.Error(w, "unauthorized: expected Bearer token", http.StatusUnauthorized)
 			return
 		}
 
-		t := auth.FromRaw(raw, auth.Write)
+		t := auth.FromRaw(raw, requiredType)
 		_, err := s.store.FindTokenByHash(t.Hash())
 		if err != nil {
 			http.Error(w, "unauthorized: invalid token", http.StatusUnauthorized)

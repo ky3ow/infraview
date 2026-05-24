@@ -23,11 +23,15 @@ function revHandler(option) {
 }
 
 function nsHandler(option) {
-  const ns = option[0].value
+  const ns = option[0].value;
   if (!ns || ns === '') return;
+
   htmx.ajax('GET', `/namespaces/${encodeURIComponent(ns)}/revisions`, {
     target: '#revisions-dropdown'
-  }).then(() => {
-    setTimeout(() => revisions.open(), 100)
   });
 }
+
+htmx.on('#revisions-dropdown', 'htmx:afterSettle', () => {
+  revisions.setData(revisions.getData()); // force refresh after new options came into markup
+  revisions.open();
+})

@@ -13,6 +13,7 @@
           <div class="revision-identity">
             <code>{{.Hash}}</code>
             {{if .Name}}<span class="revision-branch">{{.Name}}</span>{{end}}
+            <time class="revision-time" datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z"}}"></time>
           </div>
         </div>
         <div class="revision-changes" aria-label="Change overview">

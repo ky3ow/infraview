@@ -194,3 +194,11 @@ func SearchCatalog(store *storage.Store, query string) ([]CatalogResult, error) 
 func GetRevisionGraph(store *storage.Store, namespace, hash string) (*graph.Graph, error) {
 	return store.GetGraph(namespace, hash)
 }
+
+func GetLatestRevision(store *storage.Store) (*storage.LatestRevision, error) {
+	return store.GetLatestRevision()
+}
+
+func GetLatestRevisionByNamespace(store *storage.Store, namespaceName string) (*storage.LatestRevision, error) {
+	return store.GetLatestRevisionByNamespaceName(namespaceName)
+}

@@ -61,7 +61,8 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleCatalog)
 	mux.HandleFunc("GET /graph", s.handleGraph)
-	mux.HandleFunc("GET /graph/revisions", s.handleGraphRevisions)
+	mux.HandleFunc("GET /graph/{namespace}", s.handleGraphNamespace)
+	mux.HandleFunc("GET /revisions", s.handleGraphRevisions)
 	mux.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.handleRevisionGraph)
@@ -102,8 +103,22 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	// TODO redirect to /graph/{latest_namespace}/{latest_revision} once catalog metadata is stored.
-	http.Redirect(w, r, "/graph/modules/05", http.StatusSeeOther)
+	lr, err := catalog.GetLatestRevision(s.store)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/graph/"+lr.NamespaceName+"/"+lr.Hash, http.StatusSeeOther)
+}
+
+func (s *Server) handleGraphNamespace(w http.ResponseWriter, r *http.Request) {
+	namespace := r.PathValue("namespace")
+	lr, err := catalog.GetLatestRevisionByNamespace(s.store, namespace)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/graph/"+lr.NamespaceName+"/"+lr.Hash, http.StatusSeeOther)
 }
 
 func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {

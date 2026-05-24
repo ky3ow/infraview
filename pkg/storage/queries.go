@@ -386,6 +386,46 @@ func (s *Store) GetRevisionsByNamespaceName(name string) ([]DBRevision, error) {
 	return revisions, rows.Err()
 }
 
+// LatestRevision holds a namespace name and its latest revision hash.
+type LatestRevision struct {
+	NamespaceName string
+	Hash          string
+}
+
+// GetLatestRevision returns the globally newest revision (highest id).
+func (s *Store) GetLatestRevision() (*LatestRevision, error) {
+	var lr LatestRevision
+	err := s.db.QueryRow(
+		`SELECT ns.name, r.hash
+		 FROM revisions r
+		 JOIN namespaces ns ON ns.id = r.namespace_id
+		 ORDER BY r.id DESC
+		 LIMIT 1`,
+	).Scan(&lr.NamespaceName, &lr.Hash)
+	if err != nil {
+		return nil, err
+	}
+	return &lr, nil
+}
+
+// GetLatestRevisionByNamespaceName returns the newest revision for a given namespace.
+func (s *Store) GetLatestRevisionByNamespaceName(name string) (*LatestRevision, error) {
+	var lr LatestRevision
+	err := s.db.QueryRow(
+		`SELECT ns.name, r.hash
+		 FROM revisions r
+		 JOIN namespaces ns ON ns.id = r.namespace_id
+		 WHERE ns.name = ?
+		 ORDER BY r.id DESC
+		 LIMIT 1`,
+		name,
+	).Scan(&lr.NamespaceName, &lr.Hash)
+	if err != nil {
+		return nil, err
+	}
+	return &lr, nil
+}
+
 type SearchResultRow struct {
 	NamespaceID   int
 	NamespaceName string

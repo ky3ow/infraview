@@ -11,7 +11,7 @@
     <label for="namespace-input">Namespace</label>
     <input id="namespace-input" name="namespace" list="namespace-list"
       placeholder="Type to filter…" value="{{.SelectedNamespace}}"
-      hx-get="/graph/revisions"
+      hx-get="/revisions"
       hx-target="#revision-list"
       hx-trigger="input changed delay:150ms"
       hx-indicator="#revision-indicator"

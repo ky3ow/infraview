@@ -72,56 +72,20 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
-	namespaces, err := catalog.ListNamespaces(s.store)
+	namespaces, err := catalog.SearchCatalog(s.store, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	type catalogRevision struct {
-		Hash    string
-		Name    string
-		Created int
-		Updated int
-		Deleted int
-	}
-
-	type catalogNamespace struct {
-		Name      string
-		Revisions []catalogRevision
-	}
-
-	view := make([]catalogNamespace, 0, len(namespaces))
-	for _, ns := range namespaces {
-		revs, err := catalog.ListRevisions(s.store, ns.ID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		nsView := catalogNamespace{
-			Name:      ns.Name,
-			Revisions: make([]catalogRevision, 0, len(revs)),
-		}
-		for _, rev := range revs {
-			nsView.Revisions = append(nsView.Revisions, catalogRevision{
-				Hash:    rev.Hash,
-				Name:    rev.Name,
-				Created: rev.Summary.Created,
-				Updated: rev.Summary.Updated,
-				Deleted: rev.Summary.Deleted,
-			})
-		}
-		view = append(view, nsView)
-	}
-
 	data := struct {
 		Title      string
 		ActivePage string
-		Namespaces []catalogNamespace
+		Namespaces []catalog.CatalogResult
 	}{
 		Title:      "Infraview - Catalog",
 		ActivePage: "catalog",
-		Namespaces: view,
+		Namespaces: namespaces,
 	}
 
 	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {
@@ -130,21 +94,8 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	namespaces, err := catalog.ListNamespaces(s.store)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(namespaces) == 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	revs, err := catalog.ListRevisions(s.store, namespaces[0].ID)
-	if err != nil || len(revs) == 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/graph/"+namespaces[0].Name+"/"+revs[0].Hash, http.StatusSeeOther)
+	// TODO redirect to /graph/{latest_namespace}/{latest_revision} once catalog metadata is stored.
+	http.Redirect(w, r, "/graph/modules/05", http.StatusSeeOther)
 }
 
 func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +177,7 @@ func (s *Server) handleCatalogSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if results == nil {
-		results = make(map[string][]catalog.RevisionView)
+		results = []catalog.CatalogResult{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

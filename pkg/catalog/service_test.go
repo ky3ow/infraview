@@ -261,14 +261,18 @@ func TestSearchCatalog_EmptyQuery(t *testing.T) {
 		t.Fatalf("expected 2 namespaces, got %d", len(results))
 	}
 
-	// Production should have 2 revisions
-	if len(results["production"]) != 2 {
-		t.Fatalf("production should have 2 revisions, got %d", len(results["production"]))
+	// Alphabetical: production before staging
+	if results[0].Name != "production" {
+		t.Fatalf("first namespace should be production, got %q", results[0].Name)
 	}
-
-	// Staging should have 1 revision
-	if len(results["staging"]) != 1 {
-		t.Fatalf("staging should have 1 revision, got %d", len(results["staging"]))
+	if len(results[0].Revisions) != 2 {
+		t.Fatalf("production should have 2 revisions, got %d", len(results[0].Revisions))
+	}
+	if results[1].Name != "staging" {
+		t.Fatalf("second namespace should be staging, got %q", results[1].Name)
+	}
+	if len(results[1].Revisions) != 1 {
+		t.Fatalf("staging should have 1 revision, got %d", len(results[1].Revisions))
 	}
 }
 
@@ -287,12 +291,11 @@ func TestSearchCatalog_ByNamespaceName(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 namespace, got %d", len(results))
 	}
-	if results["production"] == nil {
-		t.Fatal("expected production key in results")
+	if results[0].Name != "production" {
+		t.Fatalf("expected production, got %q", results[0].Name)
 	}
-	// All revisions of matching namespace should be returned
-	if len(results["production"]) != 2 {
-		t.Fatalf("expected 2 revisions, got %d", len(results["production"]))
+	if len(results[0].Revisions) != 2 {
+		t.Fatalf("expected 2 revisions, got %d", len(results[0].Revisions))
 	}
 }
 
@@ -311,14 +314,14 @@ func TestSearchCatalog_ByHash(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
-	if results["production"] == nil {
-		t.Fatal("expected production key in results")
+	if results[0].Name != "production" {
+		t.Fatalf("expected production, got %q", results[0].Name)
 	}
-	if len(results["production"]) != 1 {
-		t.Fatalf("expected 1 revision, got %d", len(results["production"]))
+	if len(results[0].Revisions) != 1 {
+		t.Fatalf("expected 1 revision, got %d", len(results[0].Revisions))
 	}
-	if results["production"][0].Hash != "deadbeef" {
-		t.Fatalf("expected hash deadbeef, got %q", results["production"][0].Hash)
+	if results[0].Revisions[0].Hash != "deadbeef" {
+		t.Fatalf("expected hash deadbeef, got %q", results[0].Revisions[0].Hash)
 	}
 }
 
@@ -339,11 +342,11 @@ func TestSearchCatalog_ByRevisionName(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
-	if len(results["production"]) != 1 {
-		t.Fatalf("expected 1 revision, got %d", len(results["production"]))
+	if len(results[0].Revisions) != 1 {
+		t.Fatalf("expected 1 revision, got %d", len(results[0].Revisions))
 	}
-	if results["production"][0].Name != "feature/db" {
-		t.Fatalf("expected name feature/db, got %q", results["production"][0].Name)
+	if results[0].Revisions[0].Name != "feature/db" {
+		t.Fatalf("expected name feature/db, got %q", results[0].Revisions[0].Name)
 	}
 }
 

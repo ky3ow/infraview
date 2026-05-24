@@ -18,6 +18,12 @@ type NamespaceView struct {
 	Name string `json:"name"`
 }
 
+// CatalogResult is an alphabetically ordered namespace with its revisions.
+type CatalogResult struct {
+	Name      string
+	Revisions []RevisionView
+}
+
 type RevisionView struct {
 	ID          int          `json:"id"`
 	NamespaceID int          `json:"namespace_id"`
@@ -148,21 +154,24 @@ func ListRevisions(store *storage.Store, namespaceID int) ([]RevisionView, error
 	return res, nil
 }
 
-func SearchCatalog(store *storage.Store, query string) (map[string][]RevisionView, error) {
+func SearchCatalog(store *storage.Store, query string) ([]CatalogResult, error) {
 	rows, err := store.SearchCatalog(query)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string][]RevisionView)
-
+	// Rows arrive grouped by namespace name (alphabetical), newest revision first.
+	var results []CatalogResult
 	for _, row := range rows {
 		rev := RevisionView{}
 		rev.fromDB(&row.Revision)
-		result[row.NamespaceName] = append(result[row.NamespaceName], rev)
+		if len(results) == 0 || results[len(results)-1].Name != row.NamespaceName {
+			results = append(results, CatalogResult{Name: row.NamespaceName})
+		}
+		results[len(results)-1].Revisions = append(results[len(results)-1].Revisions, rev)
 	}
 
-	return result, nil
+	return results, nil
 }
 
 func GetRevisionGraph(store *storage.Store, namespace, hash string) (*graph.Graph, error) {

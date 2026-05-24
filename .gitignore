@@ -38,3 +38,5 @@ terraform.tfstate.backup
 *.pdf
 *.docx
 !ref.docx
+
+infraview.db*

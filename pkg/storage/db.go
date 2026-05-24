@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS edges (
 	revision_id  INTEGER NOT NULL REFERENCES revisions(id),
 	from_address TEXT    NOT NULL,
 	to_address   TEXT    NOT NULL,
+	type         TEXT    NOT NULL,
 	PRIMARY KEY (revision_id, from_address, to_address)
 );
 `

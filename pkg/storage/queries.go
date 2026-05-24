@@ -145,9 +145,9 @@ func (s *Store) SaveGraph(revisionID int, g *graph.Graph) error {
 	// Insert edges
 	for _, edge := range g.Edges {
 		_, err = tx.Exec(
-			`INSERT INTO edges (revision_id, from_address, to_address)
-			 VALUES (?, ?, ?)`,
-			revisionID, edge.From, edge.To,
+			`INSERT INTO edges (revision_id, from_address, to_address, type)
+			 VALUES (?, ?, ?, ?)`,
+			revisionID, edge.From, edge.To, edge.Type,
 		)
 		if err != nil {
 			return err
@@ -263,7 +263,7 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 
 	// Load edges
 	edgeRows, err := s.db.Query(`
-		SELECT e.from_address, e.to_address
+		SELECT e.from_address, e.to_address, e.type
 		FROM edges e
 		JOIN revisions r ON r.id = e.revision_id
 		JOIN namespaces ns ON ns.id = r.namespace_id
@@ -275,11 +275,11 @@ func (s *Store) GetGraph(namespace, hash string) (*graph.Graph, error) {
 	defer edgeRows.Close()
 
 	for edgeRows.Next() {
-		var from, to string
-		if err := edgeRows.Scan(&from, &to); err != nil {
+		var from, to, edgeType string
+		if err := edgeRows.Scan(&from, &to, &edgeType); err != nil {
 			return nil, err
 		}
-		g.Edges = append(g.Edges, graph.Edge{From: from, To: to})
+		g.Edges = append(g.Edges, graph.Edge{From: from, To: to, Type: graph.EdgeType(edgeType)})
 	}
 
 	return g, nil

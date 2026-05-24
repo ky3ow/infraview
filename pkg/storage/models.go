@@ -41,7 +41,8 @@ type DBNodeDetails struct {
 }
 
 type DBEdge struct {
-	RevisionID int
+	RevisionID  int
 	FromAddress string
-	ToAddress string
+	ToAddress   string
+	Type        graph.EdgeType
 }

@@ -72,7 +72,8 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
-	namespaces, err := catalog.SearchCatalog(s.store, "")
+	query := r.URL.Query().Get("q")
+	namespaces, err := catalog.SearchCatalog(s.store, query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -82,10 +83,12 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		Title      string
 		ActivePage string
 		Namespaces []catalog.CatalogResult
+		Query      string
 	}{
 		Title:      "Infraview - Catalog",
 		ActivePage: "catalog",
 		Namespaces: namespaces,
+		Query:      query,
 	}
 
 	if err := s.catalogTmpl.ExecuteTemplate(w, "layout", data); err != nil {

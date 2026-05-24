@@ -54,35 +54,5 @@
 <script type="module" src="https://unpkg.com/lighterhtml?module"></script>
 <script type="module" src="/static/main.js"></script>
 <script type="module" src="/static/icons_default.js"></script>
-<script>
-var ns = null
-var revisions = new SlimSelect({
-  select: '#revisions-dropdown',
-  events: {
-    afterChange: (o) => {
-      var rev = o[0].value;
-      if (!ns || !rev) return;
-      var path = `/graph/${encodeURIComponent(ns)}/${encodeURIComponent(rev)}`
-      htmx.ajax('GET', path, {
-        target: '#graph-content',
-        swap: 'outerHTML',
-      });
-    }
-  }
-});
-var namespaces = new SlimSelect({
-  select: '#namespaces-dropdown',
-  events: {
-    afterChange: (o) => {
-      ns = o[0].value
-      if (!ns || ns === '') return;
-      htmx.ajax('GET', `/namespaces/${encodeURIComponent(ns)}/revisions`, {
-        target: '#revisions-dropdown'
-      }).then(() => {
-        setTimeout(() => revisions.open(), 100)
-      });
-    },
-  },
-})
-</script>
+<script src="/static/graph_select.js"></script>
 {{end}}

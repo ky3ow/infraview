@@ -10,15 +10,15 @@
 {{define "header-extra"}}
 <div class="graph-selector-bar">
   <div class="selector-field">
-    <label for="namespace-dropdown">Namespace</label>
+    <label for="namespaces-dropdown">NS</label>
     <select id="namespaces-dropdown">
       {{$ns := .SelectedNamespace}}
-      {{range .Namespaces}}<option value="{{.Name}}" {{if eq .Name $ns}}selected{{end}}>{{end}}
+      {{range .Namespaces}}<option value="{{.Name}}" {{if eq .Name $ns}}selected{{end}}>{{.Name}}</option>{{end}}
     </select>
   </div>
 
   <div class="selector-field">
-    <label for="revisions-dropdown">Revision</label>
+    <label for="revisions-dropdown">@</label>
     <select id="revisions-dropdown">
       {{template "revision-options" .}}
     </select>

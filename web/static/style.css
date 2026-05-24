@@ -477,24 +477,15 @@ body {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 10rem;
+  max-width: 20rem;
 }
 
 .selector-field label {
-  font-size: 0.7rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #888;
   white-space: nowrap;
-}
-
-.selector-field input {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid #d0d5dd;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 0.82rem;
-  background: #fff;
-  width: 180px;
-  transition: border-color 0.15s;
 }
 
 .selector-field input:focus {

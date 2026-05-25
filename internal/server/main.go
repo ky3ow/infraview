@@ -3,15 +3,14 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"log/slog"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/ky3ow/infraview/pkg/auth"
+	"github.com/ky3ow/infraview/web"
 	"github.com/ky3ow/infraview/pkg/catalog"
 	"github.com/ky3ow/infraview/pkg/graph"
 	"github.com/ky3ow/infraview/pkg/log"
@@ -28,50 +27,17 @@ type Server struct {
 	sessions *auth.SessionStore
 	noAuth   bool
 
-	loginTmpl   *template.Template
-	catalogTmpl *template.Template
-	graphTmpl   *template.Template
-}
-
-func absPaths(paths []string) []string {
-	abs := make([]string, len(paths))
-	for i, p := range paths {
-		abs[i], _ = filepath.Abs(p)
-	}
-	return abs
+	assets *web.Assets
 }
 
 func New(addr string, store *storage.Store, noAuth bool) *Server {
-	s := &Server{
+	return &Server{
 		addr:     addr,
 		store:    store,
 		sessions: auth.NewSessionStore(),
 		noAuth:   noAuth,
+		assets:   web.Load(),
 	}
-	s.loadTemplates()
-	return s
-}
-
-func (s *Server) loadTemplates() {
-	base := absPaths([]string{
-		"web/templates/partials/layout.html",
-		"web/templates/partials/header.html",
-	})
-
-	catalog := append([]string{}, base...)
-	catalog = append(catalog, absPaths([]string{
-		"web/templates/catalog.html",
-		"web/templates/partials/catalog_namespaces.html",
-	})...)
-
-	graph := append([]string{}, base...)
-	graph = append(graph, absPaths([]string{"web/templates/graph.html"})...)
-
-	s.catalogTmpl = template.Must(template.ParseFiles(catalog...))
-	s.graphTmpl = template.Must(template.ParseFiles(graph...))
-	s.loginTmpl = template.Must(template.ParseFiles(
-		absPaths([]string{"web/templates/login.html"})...,
-	))
 }
 
 func (s *Server) Start() error {
@@ -83,10 +49,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /graph", s.requireSession(s.handleGraph))
 	mux.HandleFunc("GET /graph/{namespace}", s.requireSession(s.handleGraphNamespace))
 	mux.HandleFunc("GET /namespaces/{namespace}/revisions", s.requireSession(s.handleGraphRevisions))
-	mux.Handle("/static/",
-		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.requireSession(s.handleRevisionGraph))
 	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.requireApiAuth(auth.Write, s.handlePutGraph))
+
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(s.assets.Static)))
 
 	logger.Info("listening", "addr", s.addr)
 	return http.ListenAndServe(s.addr, s.logRequests(mux))
@@ -201,7 +167,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.loginTmpl.ExecuteTemplate(w, "layout", nil)
+	s.assets.Login.ExecuteTemplate(w, "layout", nil)
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +183,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	rawToken := r.FormValue("token")
 	if rawToken == "" {
-		s.loginTmpl.ExecuteTemplate(w, "layout", "token required")
+		s.assets.Login.ExecuteTemplate(w, "layout", "token required")
 		return
 	}
 
@@ -225,7 +191,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	tok, err := s.store.FindTokenByHash(t.Hash())
 	if err != nil {
 		logger.Info("login failed: invalid token", "remote", r.RemoteAddr)
-		s.loginTmpl.ExecuteTemplate(w, "layout", "invalid token")
+		s.assets.Login.ExecuteTemplate(w, "layout", "invalid token")
 		return
 	}
 
@@ -291,7 +257,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		renderTarget = "catalog-namespaces"
 	}
-	if err := s.catalogTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
+	if err := s.assets.Catalog.ExecuteTemplate(w, renderTarget, data); err != nil {
 		logger.Error("failed to render catalog template", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -339,7 +305,7 @@ func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
 		SelectedRevision: "",
 	}
 
-	if err := s.graphTmpl.ExecuteTemplate(w, "revision-options", data); err != nil {
+	if err := s.assets.Graph.ExecuteTemplate(w, "revision-options", data); err != nil {
 		logger.Error("failed to render revision options", "error", err, "namespace", namespace)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -399,7 +365,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		renderTarget = "content"
 		w.Header().Set("HX-Push-Url", "/graph/"+namespace+"/"+revision)
 	}
-	if err := s.graphTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
+	if err := s.assets.Graph.ExecuteTemplate(w, renderTarget, data); err != nil {
 		logger.Error("failed to render graph template", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

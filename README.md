@@ -2,12 +2,30 @@
 
 ```bash
 go mod tidy
-go run ./cmd/infraview-server # starts web server at localhost:8080
+go run ./cmd/infraview-server serve -no-auth # starts web server at localhost:8080
+
+# run this in separate shell
+./seed.sh
 ```
 
 # Dependencies
 
-developed with go 1.26.3
+- go>=1.26.3
+- curl (local development, for seeding)
+
+# Deployment
+
+Can be build to embed assets into portable binary
+
+```bash
+go build -o infraview -tags=embed_assets ./cmd/infraview-server
+
+TOK_READ="$(./infraview token generate -type read)"
+TOK_WRITE="$(./infraview token generate -type write)"
+# store tokens where preferred
+
+./infraview serve # with auth, TOK_READ will be prompted in ui, TOK_WRITE should be supplied in "Authorization: Bearer $TOK_WRITE" header
+```
 
 # Main functionality
 
@@ -15,15 +33,9 @@ developed with go 1.26.3
 - See graph of your resources and variables, with connections between and dependencies +
 - Highlight resource operations(create,update,delete) +
 - Filtering +
-- Grouping(loop/module level, can collapse with double-tap) +
-- Resource details, what triggered the change, old/new values +-
-
-## TODO
-- DB
+- Grouping(loop/module level, can collapse with double-tap) 
+- Resource details, what triggered the change, old/new values +
 - Plan history, separated by "namespaces"(e.g. you create namespace per git branch) and UI for it
-- Proper rest api for ingesting
-- auth
-- env variables for server
 
 ## Nice to have
 
@@ -38,12 +50,13 @@ Example: show the pending approval in UI, and on click redirect user to actual a
 
 # Test coverage
 
+go test ./pkg/* -cover -v
 go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 
 # Checklist
 
 - [x] Treat special keywords while generating graph
-  - [ ] local. ? < not planned
+  - [ ] ~local. ? < not planned~
   - [x] var. (edge)
   - [x] module. (edge + Parent thingy)
   - [x] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 

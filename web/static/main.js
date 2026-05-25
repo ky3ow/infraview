@@ -210,43 +210,34 @@ function renderChangeRows(changes) {
 
 		if (oldVal == null && newVal == null) continue;
 
-		let oldClass, oldContent, newClass, newContent;
+		let oldContent, newContent;
 
 		if (isNew) {
-			oldClass = "value-null";
-			oldContent = "<new>";
-			newClass = "value-created";
-			newContent = renderValueInline(newVal);
+			oldContent = html`<span class="value-null">&lt;new&gt;</span>`;
+			newContent = renderValue(newVal, "value-created");
 		} else if (isDeleted) {
-			oldClass = "value-regular";
-			oldContent = renderValueInline(oldVal);
-			newClass = "value-deleted";
-			newContent = "<deleted>";
+			oldContent = renderValue(oldVal, "value-regular");
+			newContent = html`<span class="value-deleted">&lt;deleted&gt;</span>`;
 		} else {
-			oldClass = "value-regular";
-			oldContent = renderValueInline(oldVal);
+			oldContent = renderValue(oldVal, "value-regular");
 
 			if (newVal == null && oldVal != null) {
-				newClass = "value-deleted";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-deleted");
 			} else if (newVal != null && oldVal == null) {
-				newClass = "value-created";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-created");
 			} else if (JSON.stringify(oldVal) === JSON.stringify(newVal)) {
-				newClass = "value-regular";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-regular");
 			} else {
-				newClass = "value-updated";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-updated");
 			}
 		}
 
 		rows.push(html`
 			<div class="change-row">
 				<dt class="change-key">${key}</dt>
-				<dd><span class=${oldClass}>${oldContent}</span></dd>
+				<dd>${oldContent}</dd>
 				<span class="change-arrow">→</span>
-				<dd><span class=${newClass}>${newContent}</span></dd>
+				<dd>${newContent}</dd>
 			</div>
 		`);
 	}
@@ -260,11 +251,25 @@ function renderChangeRows(changes) {
 	`;
 }
 
-function renderValueInline(v) {
+function renderValue(v, className) {
+	let str;
 	if (typeof v === "object" && v !== null) {
-		return JSON.stringify(v);
+		str = JSON.stringify(v);
+	} else {
+		str = String(v);
 	}
-	return String(v);
+
+	if (str.startsWith("{") || str.startsWith("[")) {
+		try {
+			const parsed = JSON.parse(str);
+			const pretty = JSON.stringify(parsed, null, 2);
+			return html`<pre class="change-value-json ${className}">${pretty}</pre>`;
+		} catch (e) {
+			// not valid JSON, fall through
+		}
+	}
+
+	return html`<span class="${className}">${str}</span>`;
 }
 
 function renderNodeDetails(node) {

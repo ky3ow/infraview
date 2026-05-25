@@ -40,7 +40,7 @@ runs:
       run: |
         REVISION_HASH="$(git rev-parse --short=8 HEAD)"
         REVISION_NAME="$(git branch --show-current)"
-        REVISION_NAME="${REVISION_NAME/\//-}"
+        REVISION_NAME="${REVISION_NAME//\//-}"
         if [ -z "$REVISION_NAME" ]; then
           REVISION_NAME="detached"
         fi
@@ -83,3 +83,22 @@ runs:
         fi
 
         rm -f RESPONSE_BODY
+
+    - if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+      shell: bash
+      env:
+        INPUT_BASE_URL: ${{ inputs.base_url }}
+        INPUT_NAMESPACE: ${{ inputs.namespace }}
+        REVISION_NAME: ${{ steps.collect.outputs.revision_name }}
+        REVISION_HASH: ${{ steps.collect.outputs.revision_hash }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        GRAPH_URL="${INPUT_BASE_URL}/graph/${INPUT_NAMESPACE}/${REVISION_HASH}"
+
+        BODY=$(printf '### Infraview Graph\n\n| | |\n|---|---|\n| **Namespace** | `%s` |\n| **Branch** | `%s` |\n| **Revision** | `%s` |\n| **Graph** | [View Graph](%s) |' "$INPUT_NAMESPACE" "$REVISION_NAME" "$REVISION_HASH" "$GRAPH_URL")
+
+        if gh pr comment "$PR_NUMBER" --body "$BODY" 2>/dev/null; then
+          echo "Posted graph link to PR #${PR_NUMBER}"
+        else
+          echo "::warning::Failed to post PR comment on #${PR_NUMBER}"
+        fi

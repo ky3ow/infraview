@@ -25,4 +25,5 @@ jobs:
 
       - name: Run tests
         run: |
-          go test ./pkg/{catalog,storage} ./test/graph
+          go test ./pkg/{catalog,storage} -cover
+          go test ./test/graph/ -cover -coverpkg=./pkg/graph

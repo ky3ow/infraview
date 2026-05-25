@@ -1,13 +1,28 @@
 // Each package creates its own logger via log.New("packagename").
 // Call Init() once at startup before any other package logs.
+// TODO figure out how to properly set configuration and have loggers per package
+// with context for tracing
 package log
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 )
+
+type Logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+	Debug(msg string, args ...any)
+	Log(ctx context.Context, level slog.Level, msg string, args ...any)
+}
+
+type packageLogger struct {
+	pkg string
+}
 
 func Init(level, format string) error {
 	lvl, err := parseLevel(level)
@@ -30,6 +45,30 @@ func Init(level, format string) error {
 
 	slog.SetDefault(slog.New(handler))
 	return nil
+}
+
+func New(name string) Logger {
+	return &packageLogger{pkg: name}
+}
+
+func (p *packageLogger) Info(msg string, args ...any) {
+	slog.Default().With("pkg", p.pkg).Info(msg, args...)
+}
+
+func (p *packageLogger) Warn(msg string, args ...any) {
+	slog.Default().With("pkg", p.pkg).Warn(msg, args...)
+}
+
+func (p *packageLogger) Error(msg string, args ...any) {
+	slog.Default().With("pkg", p.pkg).Error(msg, args...)
+}
+
+func (p *packageLogger) Debug(msg string, args ...any) {
+	slog.Default().With("pkg", p.pkg).Debug(msg, args...)
+}
+
+func (p *packageLogger) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
+	slog.Default().With("pkg", p.pkg).Log(ctx, level, msg, args...)
 }
 
 func parseLevel(s string) (slog.Level, error) {
@@ -58,7 +97,3 @@ func parseFormat(s string) (bool, error) {
 	}
 }
 
-// New returns a logger scoped to a package name.
-func New(name string) *slog.Logger {
-	return slog.Default().With("pkg", name)
-}

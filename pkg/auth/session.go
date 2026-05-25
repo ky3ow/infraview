@@ -5,7 +5,11 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/ky3ow/infraview/pkg/log"
 )
+
+var logger = log.New("auth")
 
 const SessionTTL = 30 * 24 * time.Hour
 
@@ -58,6 +62,7 @@ func (s *SessionStore) Get(id string) *Session {
 	}
 
 	if time.Since(sess.CreatedAt) > SessionTTL {
+		logger.Debug("session expired", "session_id", id[:8])
 		s.Delete(id)
 		return nil
 	}

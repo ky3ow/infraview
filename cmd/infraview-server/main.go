@@ -3,13 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/ky3ow/infraview/internal/server"
 	"github.com/ky3ow/infraview/pkg/auth"
+	"github.com/ky3ow/infraview/pkg/log"
 	"github.com/ky3ow/infraview/pkg/storage"
 )
+
+var logger = log.New("main")
 
 func env(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok {
@@ -20,12 +22,19 @@ func env(key, fallback string) string {
 
 func appUsage(name string) {
 	fmt.Fprintf(os.Stderr, "Usage: %s [token|serve]\n", name)
-	fmt.Fprintf(os.Stderr, "Environment:\n	INFRAVIEW_ADDRESS: %s\n	INFRAVIEW_DB_PATH: %s\n",
-		"listen address", "database path")
+	fmt.Fprintf(os.Stderr, "Environment:\n")
+	fmt.Fprintf(os.Stderr, "\tINFRAVIEW_ADDRESS: listen address\n")
+	fmt.Fprintf(os.Stderr, "\tINFRAVIEW_DB_PATH: database path\n")
+	fmt.Fprintf(os.Stderr, "\tLOG_LEVEL:         log level (debug|info|warn|error)\n")
+	fmt.Fprintf(os.Stderr, "\tLOG_FORMAT:        log format (text|json)\n")
 	os.Exit(1)
 }
 
 func main() {
+	if err := log.Init(env("LOG_LEVEL", "warn"), env("LOG_FORMAT", "json")); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 	name := os.Args[0]
 	if len(os.Args) < 2 {
 		runServer(name, os.Args[1:])
@@ -54,22 +63,25 @@ func runServer(name string, args []string) {
 
 	store, err := storage.New(*dbPath)
 	if err != nil {
-		log.Fatalf("storage error: %v", err)
+		logger.Error("failed to open storage", "error", err)
+		os.Exit(1)
 	}
 
 	if *noAuth {
-		log.Println("AUTH DISABLED — THIS IS FOR LOCAL DEVELOPMENT ONLY, NOT FOR PRODUCTION")
+		logger.Warn("auth disabled — for local development only")
 	}
 
 	srv := server.New(*addr, store, *noAuth)
+	logger.Info("starting server", "addr", *addr)
 	if err := srv.Start(); err != nil {
-		log.Fatalf("server error: %v", err)
+		logger.Error("server failed", "error", err)
+		os.Exit(1)
 	}
 }
 
 func runToken(name string, args []string) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s token generate --type read|write", name)
+		fmt.Fprintf(os.Stderr, "Usage: %s token generate --type read|write\n", name)
 		os.Exit(1)
 	}
 
@@ -94,16 +106,19 @@ func runToken(name string, args []string) {
 
 	store, err := storage.New(*dbPath)
 	if err != nil {
-		log.Fatalf("storage error: %v", err)
+		logger.Error("failed to open storage", "error", err)
+		os.Exit(1)
 	}
 
 	// Delete any existing token of the same type (only one active at a time)
 	if err := store.DeleteTokensByType(string(t.Type())); err != nil {
-		log.Fatalf("failed to revoke previous token: %v", err)
+		logger.Error("failed to revoke previous token", "error", err)
+		os.Exit(1)
 	}
 
 	if err := store.CreateToken(string(t.Type()), t.Hash()); err != nil {
-		log.Fatalf("failed to store token: %v", err)
+		logger.Error("failed to store token", "error", err)
+		os.Exit(1)
 	}
 
 	// Output raw token to stdout for automation to capture

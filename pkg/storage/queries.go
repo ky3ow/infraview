@@ -499,6 +499,9 @@ func (s *Store) FindTokenByHash(hash string) (*DBToken, error) {
 		hash,
 	).Scan(&t.ID, &t.Type, &t.Hash, &createdAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Debug("token not found", "hash_prefix", hash[:8])
+		}
 		return nil, err
 	}
 	t.CreatedAt, err = time.ParseInLocation(time.DateTime, createdAt, time.UTC)

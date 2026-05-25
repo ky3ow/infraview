@@ -31,7 +31,7 @@ func appUsage(name string) {
 }
 
 func main() {
-	if err := log.Init(env("LOG_LEVEL", "warn"), env("LOG_FORMAT", "json")); err != nil {
+	if err := log.Init(env("LOG_LEVEL", "info"), env("LOG_FORMAT", "json")); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

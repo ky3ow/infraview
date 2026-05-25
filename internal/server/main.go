@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -10,11 +11,11 @@ import (
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/ky3ow/infraview/pkg/auth"
-	"github.com/ky3ow/infraview/web"
 	"github.com/ky3ow/infraview/pkg/catalog"
 	"github.com/ky3ow/infraview/pkg/graph"
 	"github.com/ky3ow/infraview/pkg/log"
 	"github.com/ky3ow/infraview/pkg/storage"
+	"github.com/ky3ow/infraview/web"
 )
 
 const sessionCookieName = "session"
@@ -58,7 +59,6 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.addr, s.logRequests(mux))
 }
 
-// logRequests is HTTP middleware that logs each request with method, path, status, and duration.
 func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -81,7 +81,6 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 	})
 }
 
-// loggingResponseWriter captures the HTTP status code.
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	status int
@@ -92,9 +91,8 @@ func (lw *loggingResponseWriter) WriteHeader(code int) {
 	lw.ResponseWriter.WriteHeader(code)
 }
 
-// requireApiAuth checks the Authorization: Bearer header against stored tokens.
-// Returns 401 if missing or invalid. Used for programmatic API endpoints.
-// Skipped entirely when noAuth is set.
+// checks the Authorization: Bearer header against stored tokens.
+// used for programmatic API endpoints.
 func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.noAuth {
@@ -128,9 +126,8 @@ func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) h
 	}
 }
 
-// requireSession checks for a valid session cookie.
+// checks for a valid session cookie.
 // Redirects to /login if missing or expired. Used for interactive page routes.
-// Skipped entirely when noAuth is set.
 func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.noAuth {
@@ -412,7 +409,13 @@ func (s *Server) handlePutGraph(w http.ResponseWriter, r *http.Request) {
 	logger.Info("plan saved", "namespace", namespace, "revision", revision,
 		"created", metadata.Created, "updated", metadata.Updated, "deleted", metadata.Deleted)
 
+	result := struct {
+		Endpoint string `json:"endpoint"`
+	}{
+		Endpoint: fmt.Sprintf("/graph/%v/%v", namespace, rev.Hash),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(rev)
+	json.NewEncoder(w).Encode(result)
 }

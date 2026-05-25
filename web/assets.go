@@ -8,7 +8,6 @@ import (
 	"net/http"
 )
 
-// Assets holds templates and a static file server.
 type Assets struct {
 	Login   *template.Template
 	Catalog *template.Template
@@ -16,8 +15,6 @@ type Assets struct {
 	Static  http.FileSystem
 }
 
-// Paths relative to the web/ directory root.
-// Each implementation handles them differently.
 var (
 	loginPaths   = []string{"templates/login.html"}
 	catalogPaths = []string{

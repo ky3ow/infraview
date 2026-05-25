@@ -1,0 +1,85 @@
+name: "Report Revision"
+description: "Collects git revision info and reports it via PUT to the infraview graph API"
+
+inputs:
+  base_url:
+    description: "Base URL of the infraview server (e.g. https://infra.example.com)"
+    required: true
+  token:
+    description: "API token with write access (omit if auth is disabled)"
+    required: false
+    default: ""
+  namespace:
+    description: "Project namespace to report under"
+    required: true
+  plan_file:
+    description: "Path to a terraform plan JSON file (e.g. from `terraform show -json plan.json`)"
+    required: true
+
+outputs:
+  revision_hash:
+    description: "8-character commit hash"
+    value: ${{ steps.collect.outputs.revision_hash }}
+  revision_name:
+    description: "Git branch name (or 'detached')"
+    value: ${{ steps.collect.outputs.revision_name }}
+  graph_endpoint:
+    description: "Full graph URL returned by the server"
+    value: ${{ steps.collect.outputs.graph_endpoint }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: collect
+      shell: bash
+      env:
+        INPUT_BASE_URL: ${{ inputs.base_url }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_NAMESPACE: ${{ inputs.namespace }}
+        INPUT_PLAN_FILE: ${{ inputs.plan_file }}
+      run: |
+        REVISION_HASH="$(git rev-parse --short=8 HEAD)"
+        REVISION_NAME="$(git branch --show-current)"
+        REVISION_NAME="${REVISION_NAME/\//-}"
+        if [ -z "$REVISION_NAME" ]; then
+          REVISION_NAME="detached"
+        fi
+
+        echo "revision_hash=${REVISION_HASH}" >> "$GITHUB_OUTPUT"
+        echo "revision_name=${REVISION_NAME}" >> "$GITHUB_OUTPUT"
+
+        URL="${INPUT_BASE_URL}/api/v1/graph/${INPUT_NAMESPACE}/${REVISION_HASH}?name=${REVISION_NAME}"
+
+        if [ -z "$INPUT_PLAN_FILE" ]; then
+          echo "::error::plan_file input is required"
+          exit 1
+        fi
+
+        if [ ! -f "$INPUT_PLAN_FILE" ]; then
+          echo "::error::plan file not found: ${INPUT_PLAN_FILE}"
+          exit 1
+        fi
+
+        if [ -n "$INPUT_TOKEN" ]; then
+          HTTP_CODE=$(curl -s -o RESPONSE_BODY -w "%{http_code}" -X PUT "$URL" \
+            -H "Authorization: Bearer ${INPUT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "@${INPUT_PLAN_FILE}") || true
+        else
+          HTTP_CODE=$(curl -s -o RESPONSE_BODY -w "%{http_code}" -X PUT "$URL" \
+            -H "Content-Type: application/json" \
+            -d "@${INPUT_PLAN_FILE}") || true
+        fi
+
+        if [ "$HTTP_CODE" -ge 200 ] 2>/dev/null && [ "$HTTP_CODE" -lt 300 ] 2>/dev/null; then
+          GRAPH_EP=$(jq -r '.endpoint' RESPONSE_BODY 2>/dev/null || echo "")
+          if [ -n "$GRAPH_EP" ]; then
+            echo "graph_endpoint=${INPUT_BASE_URL}${GRAPH_EP}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Reported ${REVISION_NAME}@${REVISION_HASH} → ${INPUT_NAMESPACE} (HTTP ${HTTP_CODE})"
+        else
+          BODY=$(cat RESPONSE_BODY 2>/dev/null || echo "")
+          echo "::warning::Failed to report revision (HTTP ${HTTP_CODE}): ${BODY}"
+        fi
+
+        rm -f RESPONSE_BODY

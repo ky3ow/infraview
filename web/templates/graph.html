@@ -39,7 +39,19 @@
 <div id="graph-content" class="graph-layout">
   <aside class="sidebar">
     <div class="sidebar-content">
-      <div id="state-filters"></div>
+      <div id="state-filters">
+        <div class="state-filter-list">
+        {{range $name, $state := .Filters}}
+          <label class="state-filter-item">
+            <span class="state-filter-color-dot" data-filter-state="{{$name}}"></span>
+            <span class="state-filter-label">{{$state.Label}}</span>
+            <span class="state-filter-count">{{$state.Count}}</span>
+            <input type="checkbox" id="state-filter-checkbox-{{$name}}" class="state-filter-checkbox" data-filter-state="{{$name}}" checked disabled />
+          </label>
+        {{end}}
+        <button class="state-filter-reset-btn">Show All</button>
+        </div>
+      </div>
     </div>
   </aside>
   <div class="graph-container">

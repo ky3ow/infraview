@@ -337,10 +337,34 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type Filters map[graph.ResourceState]struct {
+		Count int
+		Label string
+	}
+
+	filters := Filters{
+		graph.StateNoop:    {Label: "No changes"},
+		graph.StateCreate:  {Label: "Created"},
+		graph.StateDelete:  {Label: "Deleted"},
+		graph.StateModify:  {Label: "Updated"},
+		graph.StateReplace: {Label: "Replaced"},
+	}
+
+	for _, node := range graphData.Nodes {
+		state := graph.StateNoop
+		if node.State != "" {
+			state = node.State
+		}
+		f := filters[state]
+		f.Count++
+		filters[state] = f
+	}
+
 	data := struct {
 		Title             string
 		ActivePage        string
 		Graph             graph.Graph
+		Filters           Filters
 		Namespaces        []catalog.NamespaceView
 		Revisions         []catalog.RevisionView
 		SelectedNamespace string
@@ -350,6 +374,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		Title:             "Infraview - Graph",
 		ActivePage:        "graph",
 		Graph:             *graphData,
+		Filters:           filters,
 		Namespaces:        nsList,
 		Revisions:         revisions,
 		SelectedNamespace: namespace,

@@ -14,23 +14,11 @@ const stateColors = {
 	noop: "transparent",
 };
 
-// States that participate in filtering.
-const FILTERABLE_STATES = ["create", "delete", "modify", "noop", "replace"];
-
-const stateLabels = {
-	create: "Create",
-	delete: "Delete",
-	modify: "Modify",
-	noop: "No-op",
-	replace: "Replace",
-};
-
 let state = {};
 
 function init() {
 	state.graph = JSON.parse(document.getElementById("graph-data").text);
 	state.sidebar = document.getElementById("node-details-sidebar");
-	state.activeFilters = Object.fromEntries(FILTERABLE_STATES.map(s => [s, true]));
 
 	const [nodes, edges] = prepareNodes(state.graph);
 
@@ -53,8 +41,12 @@ function init() {
 	state.cy.on("mouseover", "node", cyHandleDimmingStart);
 	state.cy.on("mouseout", "node", cyHandleDimmingEnd);
 
-	renderStateFilters();
-	applyFilters();
+	document.getElementById("state-filters").addEventListener("change", applyFilters)
+	document.querySelector(".state-filter-reset-btn").addEventListener("click", filtersHandleShowAll)
+
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		filter.disabled = false;
+	}
 }
 
 function cleanup() {
@@ -71,7 +63,6 @@ function cleanup() {
 
 	closeNodeDetails();
 	state.graph = null;
-	state.activeFilters = null;
 }
 
 function escapeSvgText(value) {
@@ -185,6 +176,7 @@ function createPulsing() {
 			});
 		});
 	}, 800);
+	return timer;
 }
 
 function renderChangeRows(changes) {
@@ -331,45 +323,11 @@ function closeNodeDetails() {
 	state.sidebar.classList.remove("is-open");
 }
 
-function countNodesByState() {
-	const counts = {};
-	for (const filterState of FILTERABLE_STATES) {
-		counts[filterState] = state.cy.nodes(`[state="${filterState}"]`).length;
+function filtersHandleShowAll() {
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		filter.checked = true;
 	}
-	return counts;
-}
-
-function renderStateFilters() {
-	const counts = countNodesByState();
-	const filterContainer = document.getElementById("state-filters");
-
-	// TODO move this hack to markup
-	render(filterContainer, html`
-		<div class="state-filter-list">
-			${FILTERABLE_STATES.map(filterState => html`
-				<label class="state-filter-item">
-					<span class="state-filter-color-dot" style="background:${stateColors[filterState]};border:1px solid #ccc"></span>
-					<span class="state-filter-label">${stateLabels[filterState]}</span>
-					<span class="state-filter-count">${counts[filterState]}</span>
-					<input
-						type="checkbox"
-						class="state-filter-checkbox"
-						checked=${state.activeFilters[filterState]}
-						onchange=${() => {
-							state.activeFilters[filterState] = !state.activeFilters[filterState];
-							applyFilters();
-							renderStateFilters();
-						}}
-					/>
-				</label>
-			`)}
-		</div>
-		<button class="state-filter-reset-btn" onclick=${() => {
-			for (const s of FILTERABLE_STATES) state.activeFilters[s] = true;
-			applyFilters();
-			renderStateFilters();
-		}}>Show All</button>
-	`);
+	applyFilters();
 }
 
 function cyHandleDetailsOpen(event) {
@@ -498,7 +456,9 @@ function applyFilters() {
 	const CONTAINER_KINDS = new Set(["module", "resource_loop", "module_loop"]);
 
 	const ownHidden = new Set();
-	for (const [filterState, visible] of Object.entries(state.activeFilters)) {
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		const visible = filter.checked;
+		const filterState = filter.dataset.filterState;
 		if (!visible) {
 			state.cy.nodes(`[state="${filterState}"]`).forEach(n => {
 				// Modules/loops with modify state are exempt - never hidden

@@ -594,3 +594,24 @@ body {
 .logout-btn:hover {
   background: #ffeeee;
 }
+
+.state-filter-color-dot {
+  border: 1px solid #cccccc;
+  background: var(--state-color);
+}
+
+.state-filter-color-dot[data-filter-state="noop"] {
+  --state-color: transparent;
+}
+.state-filter-color-dot[data-filter-state="create"] {
+  --state-color: #27ae60;
+}
+.state-filter-color-dot[data-filter-state="modify"] {
+  --state-color: #f39c12;
+}
+.state-filter-color-dot[data-filter-state="delete"] {
+  --state-color: #e74c3c;
+}
+.state-filter-color-dot[data-filter-state="replace"] {
+  --state-color: #8e44ad;
+}

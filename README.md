@@ -296,3 +296,35 @@ value can be:
 - array of Expressions(map Name -> value)
 
 If a value, or block has a reference on other dependency - WHOLE value or block is replaced with `references` in the configuration section
+
+### Web components
+
+For details sidebar?
+
+```js
+class NodeDetailsPanel extends HTMLElement {
+    connectedCallback() {
+       this.addEventListener("click", (e) => {
+         if (e.target.closest(".node-details-close")) this.close();
+       });
+     }
+
+    set node(n) {
+       this._node = n;
+       this.render();
+       this.classList.add("is-open");
+     }
+
+    close() {
+       this.classList.remove("is-open");
+       this._node = null;
+       this.innerHTML = "";
+     }
+
+    render() {
+       // current renderNodeDetails body, using this instead of state.sidebar
+       // renderChangeRows and renderValue become private methods or
+       // imported helpers
+    }
+}
+```

@@ -22,6 +22,8 @@ function init() {
 
 	const [nodes, edges] = prepareNodes(state.graph);
 
+	state.details = document.querySelector("details-panel");
+
 	state.cy = cytoscape({
 		container: document.getElementById("graph"),
 		wheelSensitivity: 0.3,
@@ -67,7 +69,6 @@ function cleanup() {
 	if (filtersContainer) filtersContainer.removeEventListener("change", filterChangeHandler);
 	if (resetBtn) resetBtn.removeEventListener("click", filtersHandleShowAll);
 
-	closeNodeDetails();
 	state.graph = null;
 }
 
@@ -270,65 +271,6 @@ function renderValue(v, className) {
 	return html`<span class="${className}">${str}</span>`;
 }
 
-function renderNodeDetails(node) {
-	if (!node) {
-		closeNodeDetails();
-		return;
-	}
-
-	const entries = [
-		["Kind", node.kind],
-		["Type", node.type],
-		["Mode", node.mode],
-		["State", node.state],
-		["Parent", node.parent],
-	].filter(([_, value]) => value);
-
-	render(state.sidebar, html`
-		<aside class="node-details-panel" aria-label="Node details">
-			<header class="node-details-header">
-				<div>
-					<div class="node-details-eyebrow">Node</div>
-					<h2>${node.address}</h2>
-				</div>
-				<button class="node-details-close" type="button" aria-label="Close node details" onclick=${closeNodeDetails}>&times;</button>
-			</header>
-			<div class="node-details-content">
-				${entries.length ? html`
-					<dl class="node-details-list">
-						${entries.map(([label, value]) => html`
-							<div>
-								<dt>${label}</dt>
-								<dd>${value}</dd>
-							</div>
-						`)}
-					</dl>
-				` : ""}
-				${node.parameters?.length ? "": "" /* html`
-					<section class="node-details-section">
-						<h3>Parameters</h3>
-						<ul>
-							${node.parameters.map((parameter) => html`<li>${parameter}</li>`)}
-						</ul>
-					</section>
-				` : ""*/}
-				${node.changes ? html`
-					<section class="node-details-section">
-						<h3>Changes</h3>
-						${renderChangeRows(node.changes)}
-					</section>
-				` : ""}
-			</div>
-		</aside>
-	`);
-	state.sidebar.classList.add("is-open");
-}
-
-function closeNodeDetails() {
-	render(state.sidebar, html``);
-	state.sidebar.classList.remove("is-open");
-}
-
 function filterChangeHandler(event) {
 	applyFilters();
 }
@@ -346,12 +288,12 @@ function cyHandleDetailsOpen(event) {
 		return;
 	}
 	const id = event.target.id();
-	renderNodeDetails(state.graph.nodes[id]);
+	state.details.open(state.graph.nodes[id])
 }
 
 function cyHandleDetailsClose(event) {
 	if (event.target === state.cy) {
-		closeNodeDetails();
+		state.details.close();
 	}
 }
 
@@ -638,5 +580,85 @@ document.addEventListener("htmx:afterSwap", (e) => {
 		init();
 	}
 });
+
+class Details extends HTMLElement {
+	node = null;
+	_open = false;
+
+	constructor() { super(); }
+
+	connectedCallback() {
+		this._render();
+	}
+
+	disconnectedCallback() {
+		this.close();
+	}
+
+	open(node) {
+		if(node) {
+			this.node = node;
+			this._open = true;
+			this.parentElement.classList.add("is-open");
+			this._render();
+		}
+	}
+
+	close() {
+		this.node = null;
+		this._open = false;
+		this.parentElement.classList.remove("is-open");
+		this._render();
+	}
+
+	_render() {
+		if (!this._open) {
+			render(this, html``);
+			return;
+		}
+
+		const node = this.node;
+
+		const entries = [
+			["Kind", node.kind],
+			["Type", node.type],
+			["Mode", node.mode],
+			["State", node.state],
+			["Parent", node.parent],
+		].filter(([_, value]) => value);
+
+		render(this, html`
+				<aside class="node-details-panel" aria-label="Node details">
+					<header class="node-details-header">
+						<div>
+							<div class="node-details-eyebrow">Node</div>
+							<h2>${node.address}</h2>
+						</div>
+						<button class="node-details-close" type="button" aria-label="Close node details" onclick=${() => this.close()}>&times;</button>
+					</header>
+					<div class="node-details-content">
+						${entries.length ? html`
+							<dl class="node-details-list">
+								${entries.map(([label, value]) => html`
+									<div>
+										<dt>${label}</dt>
+										<dd>${value}</dd>
+									</div>
+								`)}
+							</dl>
+						` : ""}
+						${node.changes ? html`
+							<section class="node-details-section">
+								<h3>Changes</h3>
+								${renderChangeRows(node.changes)}
+							</section>
+						` : ""}
+					</div>
+				</aside>
+		`);
+	}
+}
+
+customElements.define("details-panel", Details);
 
 init();

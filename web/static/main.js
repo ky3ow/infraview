@@ -41,8 +41,8 @@ function init() {
 	state.cy.on("mouseover", "node", cyHandleDimmingStart);
 	state.cy.on("mouseout", "node", cyHandleDimmingEnd);
 
-	document.getElementById("state-filters").addEventListener("change", applyFilters)
-	document.querySelector(".state-filter-reset-btn").addEventListener("click", filtersHandleShowAll)
+	document.getElementById("state-filters").addEventListener("change", filterChangeHandler);
+	document.querySelector(".state-filter-reset-btn").addEventListener("click", filtersHandleShowAll);
 
 	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
 		filter.disabled = false;
@@ -60,6 +60,12 @@ function cleanup() {
 		clearInterval(state.pulseInterval);
 		state.pulseInterval = null;
 	}
+
+	const filtersContainer = document.getElementById("state-filters");
+	const resetBtn = document.querySelector(".state-filter-reset-btn");
+
+	if (filtersContainer) filtersContainer.removeEventListener("change", filterChangeHandler);
+	if (resetBtn) resetBtn.removeEventListener("click", filtersHandleShowAll);
 
 	closeNodeDetails();
 	state.graph = null;
@@ -321,6 +327,10 @@ function renderNodeDetails(node) {
 function closeNodeDetails() {
 	render(state.sidebar, html``);
 	state.sidebar.classList.remove("is-open");
+}
+
+function filterChangeHandler(event) {
+	applyFilters();
 }
 
 function filtersHandleShowAll() {

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "id": {
+      "string": "core-id3"
+    },
+    "integer": {
+      "number": "2"
+    }
+  }
+}

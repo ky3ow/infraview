@@ -22,6 +22,11 @@ namespace() {
 
 cd "$(dirname "$0")"
 
+HEADERS=()
+if [ -n "$1" ]; then
+  HEADERS+=(-H "Authorization: Bearer $1")
+fi
+
 for plan in test/graph/*/plan.json; do
   [ -f "$plan" ] || continue
   [ -s "$plan" ] || continue
@@ -34,7 +39,7 @@ for plan in test/graph/*/plan.json; do
 
   code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
     --data-binary @"$plan" \
-    -H 'Content-Type: application/json' \
+    -H 'Content-Type: application/json' "${HEADERS[@]}" \
     "${SERVER}/api/v1/graph/${ns}/${rev}?name=\"$name\"")
 
   echo "Ingested plan \"${dir}\" → ${ns}/${rev} (${code})"

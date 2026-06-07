@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -141,8 +142,38 @@ func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+
+		// Check for pre-authenticated link (?token=...)
+		if rawToken := r.URL.Query().Get("token"); rawToken != "" {
+			t := auth.FromRaw(rawToken, auth.Read)
+			if _, err := s.store.FindTokenByHash(t.Hash()); err == nil {
+				sess := s.sessions.Create(auth.Read)
+				http.SetCookie(w, &http.Cookie{
+					Name:     sessionCookieName,
+					Value:    sess.ID,
+					Path:     "/",
+					HttpOnly: true,
+					MaxAge:   int(auth.SessionTTL.Seconds()),
+					SameSite: http.SameSiteLaxMode,
+				})
+				// Strip the token param and redirect to the same page
+				q := r.URL.Query()
+				q.Del("token")
+				r.URL.RawQuery = q.Encode()
+				http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
+				return
+			}
+		}
+
+		// Preserve the original URL so we can redirect back after login
+		returnTo := r.URL.RequestURI()
+		http.Redirect(w, r, "/login?return="+url.QueryEscape(returnTo), http.StatusSeeOther)
 	}
+}
+
+type loginData struct {
+	Error  string
+	Return string
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +195,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.assets.Login.ExecuteTemplate(w, "layout", nil)
+	returnTo := r.URL.Query().Get("return")
+	s.assets.Login.ExecuteTemplate(w, "layout", loginData{Return: returnTo})
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -178,9 +210,11 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	data := loginData{Return: r.FormValue("return")}
+
 	rawToken := r.FormValue("token")
 	if rawToken == "" {
-		s.assets.Login.ExecuteTemplate(w, "layout", "token required")
+		s.assets.Login.ExecuteTemplate(w, "layout", loginData{Error: "token required", Return: data.Return})
 		return
 	}
 
@@ -188,7 +222,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	tok, err := s.store.FindTokenByHash(t.Hash())
 	if err != nil {
 		logger.Info("login failed: invalid token", "remote", r.RemoteAddr)
-		s.assets.Login.ExecuteTemplate(w, "layout", "invalid token")
+		s.assets.Login.ExecuteTemplate(w, "layout", loginData{Error: "invalid token", Return: data.Return})
 		return
 	}
 
@@ -203,7 +237,13 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Redirect back to where the user came from, if it's a safe relative URL
+	redirectTo := "/"
+	if ret := data.Return; ret != "" && strings.HasPrefix(ret, "/") {
+		redirectTo = ret
+	}
+
+	http.Redirect(w, r, redirectTo, http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

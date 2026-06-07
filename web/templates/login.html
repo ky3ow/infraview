@@ -74,8 +74,9 @@
 <body>
   <div class="login-card">
     <h1>Infraview</h1>
-    {{if .}}<div class="error">{{.}}</div>{{end}}
+    {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
     <form method="POST" action="/login">
+      {{if .Return}}<input type="hidden" name="return" value="{{.Return}}">{{end}}
       <label for="token">Token</label>
       <input type="text" id="token" name="token" placeholder="paste your token" required autocomplete="off">
       <button type="submit">Sign in</button>

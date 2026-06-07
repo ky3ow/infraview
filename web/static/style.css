@@ -615,3 +615,57 @@ body {
 .state-filter-color-dot[data-filter-state="replace"] {
   --state-color: #8e44ad;
 }
+
+/* Sidebar toggle button - hidden on desktop */
+.sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.sidebar-toggle:hover {
+  background: #f2f4f7;
+}
+
+@media (max-width: 768px) {
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .graph-layout {
+    position: relative;
+  }
+
+  .graph-layout .sidebar {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 10;
+    background: #fff;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.12);
+  }
+
+  .graph-layout.sidebar-open .sidebar {
+    display: block;
+  }
+
+  .graph-layout.sidebar-open .sidebar-content {
+    padding-top: 44px;
+  }
+}

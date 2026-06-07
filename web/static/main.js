@@ -46,6 +46,13 @@ function init() {
 	document.getElementById("state-filters").addEventListener("change", filterChangeHandler);
 	document.querySelector(".state-filter-reset-btn").addEventListener("click", filtersHandleShowAll);
 
+	const sidebarToggle = document.querySelector(".sidebar-toggle");
+	if (sidebarToggle) {
+		sidebarToggle.addEventListener("click", () => {
+			document.querySelector(".graph-layout").classList.toggle("sidebar-open");
+		});
+	}
+
 	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
 		filter.disabled = false;
 	}

@@ -6,7 +6,10 @@ import (
 	"fmt"
 
 	_ "modernc.org/sqlite"
+	"github.com/ky3ow/infraview/pkg/log"
 )
+
+var logger = log.New("storage")
 
 var ErrRevisionNotFound = errors.New("revision not found")
 
@@ -94,6 +97,7 @@ func New(location string) (*Store, error) {
 		return nil, fmt.Errorf("ensure tables: %w", err)
 	}
 
+	logger.Debug("storage initialized", "path", location)
 	return store, nil
 }
 

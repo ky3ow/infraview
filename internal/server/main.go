@@ -3,20 +3,25 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
-	"path/filepath"
+	"net/url"
 	"strings"
+	"time"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/ky3ow/infraview/pkg/auth"
 	"github.com/ky3ow/infraview/pkg/catalog"
 	"github.com/ky3ow/infraview/pkg/graph"
+	"github.com/ky3ow/infraview/pkg/log"
 	"github.com/ky3ow/infraview/pkg/storage"
+	"github.com/ky3ow/infraview/web"
 )
 
 const sessionCookieName = "session"
+
+var logger = log.New("server")
 
 type Server struct {
 	addr     string
@@ -24,50 +29,17 @@ type Server struct {
 	sessions *auth.SessionStore
 	noAuth   bool
 
-	loginTmpl   *template.Template
-	catalogTmpl *template.Template
-	graphTmpl   *template.Template
-}
-
-func absPaths(paths []string) []string {
-	abs := make([]string, len(paths))
-	for i, p := range paths {
-		abs[i], _ = filepath.Abs(p)
-	}
-	return abs
+	assets *web.Assets
 }
 
 func New(addr string, store *storage.Store, noAuth bool) *Server {
-	s := &Server{
+	return &Server{
 		addr:     addr,
 		store:    store,
 		sessions: auth.NewSessionStore(),
 		noAuth:   noAuth,
+		assets:   web.Load(),
 	}
-	s.loadTemplates()
-	return s
-}
-
-func (s *Server) loadTemplates() {
-	base := absPaths([]string{
-		"web/templates/partials/layout.html",
-		"web/templates/partials/header.html",
-	})
-
-	catalog := append([]string{}, base...)
-	catalog = append(catalog, absPaths([]string{
-		"web/templates/catalog.html",
-		"web/templates/partials/catalog_namespaces.html",
-	})...)
-
-	graph := append([]string{}, base...)
-	graph = append(graph, absPaths([]string{"web/templates/graph.html"})...)
-
-	s.catalogTmpl = template.Must(template.ParseFiles(catalog...))
-	s.graphTmpl = template.Must(template.ParseFiles(graph...))
-	s.loginTmpl = template.Must(template.ParseFiles(
-		absPaths([]string{"web/templates/login.html"})...,
-	))
 }
 
 func (s *Server) Start() error {
@@ -79,18 +51,49 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /graph", s.requireSession(s.handleGraph))
 	mux.HandleFunc("GET /graph/{namespace}", s.requireSession(s.handleGraphNamespace))
 	mux.HandleFunc("GET /namespaces/{namespace}/revisions", s.requireSession(s.handleGraphRevisions))
-	mux.Handle("/static/",
-		http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	mux.HandleFunc("GET /graph/{namespace}/{revision}", s.requireSession(s.handleRevisionGraph))
 	mux.HandleFunc("PUT /api/v1/graph/{namespace}/{revision}", s.requireApiAuth(auth.Write, s.handlePutGraph))
 
-	log.Printf("Listening on %s\n", s.addr)
-	return http.ListenAndServe(s.addr, mux)
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(s.assets.Static)))
+
+	logger.Info("listening", "addr", s.addr)
+	return http.ListenAndServe(s.addr, s.logRequests(mux))
 }
 
-// requireApiAuth checks the Authorization: Bearer header against stored tokens.
-// Returns 401 if missing or invalid. Used for programmatic API endpoints.
-// Skipped entirely when noAuth is set.
+func (s *Server) logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lw := &loggingResponseWriter{ResponseWriter: w, status: http.StatusOK}
+		defer func() {
+			level := slog.LevelInfo
+			if lw.status >= 500 {
+				level = slog.LevelError
+			} else if lw.status >= 400 {
+				level = slog.LevelWarn
+			}
+			logger.Log(r.Context(), level, "http request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", lw.status,
+				"duration", time.Since(start).String(),
+			)
+		}()
+		next.ServeHTTP(lw, r)
+	})
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (lw *loggingResponseWriter) WriteHeader(code int) {
+	lw.status = code
+	lw.ResponseWriter.WriteHeader(code)
+}
+
+// checks the Authorization: Bearer header against stored tokens.
+// used for programmatic API endpoints.
 func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.noAuth {
@@ -100,12 +103,14 @@ func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) h
 
 		header := r.Header.Get("Authorization")
 		if header == "" {
+			logger.Warn("api auth denied: missing token", "method", r.Method, "path", r.URL.Path)
 			http.Error(w, "unauthorized: missing token", http.StatusUnauthorized)
 			return
 		}
 
 		raw := strings.TrimPrefix(header, "Bearer ")
 		if raw == header {
+			logger.Warn("api auth denied: invalid auth header format", "method", r.Method, "path", r.URL.Path)
 			http.Error(w, "unauthorized: expected Bearer token", http.StatusUnauthorized)
 			return
 		}
@@ -113,6 +118,7 @@ func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) h
 		t := auth.FromRaw(raw, requiredType)
 		_, err := s.store.FindTokenByHash(t.Hash())
 		if err != nil {
+			logger.Warn("api auth denied: invalid token", "method", r.Method, "path", r.URL.Path, "error", err)
 			http.Error(w, "unauthorized: invalid token", http.StatusUnauthorized)
 			return
 		}
@@ -121,9 +127,8 @@ func (s *Server) requireApiAuth(requiredType auth.Type, next http.HandlerFunc) h
 	}
 }
 
-// requireSession checks for a valid session cookie.
+// checks for a valid session cookie.
 // Redirects to /login if missing or expired. Used for interactive page routes.
-// Skipped entirely when noAuth is set.
 func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.noAuth {
@@ -137,8 +142,38 @@ func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+
+		// Check for pre-authenticated link (?token=...)
+		if rawToken := r.URL.Query().Get("token"); rawToken != "" {
+			t := auth.FromRaw(rawToken, auth.Read)
+			if _, err := s.store.FindTokenByHash(t.Hash()); err == nil {
+				sess := s.sessions.Create(auth.Read)
+				http.SetCookie(w, &http.Cookie{
+					Name:     sessionCookieName,
+					Value:    sess.ID,
+					Path:     "/",
+					HttpOnly: true,
+					MaxAge:   int(auth.SessionTTL.Seconds()),
+					SameSite: http.SameSiteLaxMode,
+				})
+				// Strip the token param and redirect to the same page
+				q := r.URL.Query()
+				q.Del("token")
+				r.URL.RawQuery = q.Encode()
+				http.Redirect(w, r, r.URL.String(), http.StatusSeeOther)
+				return
+			}
+		}
+
+		// Preserve the original URL so we can redirect back after login
+		returnTo := r.URL.RequestURI()
+		http.Redirect(w, r, "/login?return="+url.QueryEscape(returnTo), http.StatusSeeOther)
 	}
+}
+
+type loginData struct {
+	Error  string
+	Return string
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +195,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.loginTmpl.ExecuteTemplate(w, "layout", nil)
+	returnTo := r.URL.Query().Get("return")
+	s.assets.Login.ExecuteTemplate(w, "layout", loginData{Return: returnTo})
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -174,16 +210,19 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	data := loginData{Return: r.FormValue("return")}
+
 	rawToken := r.FormValue("token")
 	if rawToken == "" {
-		s.loginTmpl.ExecuteTemplate(w, "layout", "token required")
+		s.assets.Login.ExecuteTemplate(w, "layout", loginData{Error: "token required", Return: data.Return})
 		return
 	}
 
 	t := auth.FromRaw(rawToken, auth.Read)
 	tok, err := s.store.FindTokenByHash(t.Hash())
 	if err != nil {
-		s.loginTmpl.ExecuteTemplate(w, "layout", "invalid token")
+		logger.Info("login failed: invalid token", "remote", r.RemoteAddr)
+		s.assets.Login.ExecuteTemplate(w, "layout", loginData{Error: "invalid token", Return: data.Return})
 		return
 	}
 
@@ -198,7 +237,13 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Redirect back to where the user came from, if it's a safe relative URL
+	redirectTo := "/"
+	if ret := data.Return; ret != "" && strings.HasPrefix(ret, "/") {
+		redirectTo = ret
+	}
+
+	http.Redirect(w, r, redirectTo, http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +271,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	namespaces, err := catalog.SearchCatalog(s.store, query)
 	if err != nil {
+		logger.Error("catalog search failed", "error", err, "query", query)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -248,7 +294,8 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		renderTarget = "catalog-namespaces"
 	}
-	if err := s.catalogTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
+	if err := s.assets.Catalog.ExecuteTemplate(w, renderTarget, data); err != nil {
+		logger.Error("failed to render catalog template", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -256,6 +303,7 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	lr, err := catalog.GetLatestRevision(s.store)
 	if err != nil {
+		logger.Error("failed to get latest revision", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -266,6 +314,7 @@ func (s *Server) handleGraphNamespace(w http.ResponseWriter, r *http.Request) {
 	namespace := r.PathValue("namespace")
 	lr, err := catalog.GetLatestRevisionByNamespace(s.store, namespace)
 	if err != nil {
+		logger.Error("failed to get latest revision by namespace", "error", err, "namespace", namespace)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -280,6 +329,7 @@ func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
 
 	revisions, err := catalog.ListRevisionsByName(s.store, namespace)
 	if err != nil {
+		logger.Error("failed to list revisions", "error", err, "namespace", namespace)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -292,7 +342,8 @@ func (s *Server) handleGraphRevisions(w http.ResponseWriter, r *http.Request) {
 		SelectedRevision: "",
 	}
 
-	if err := s.graphTmpl.ExecuteTemplate(w, "revision-options", data); err != nil {
+	if err := s.assets.Graph.ExecuteTemplate(w, "revision-options", data); err != nil {
+		logger.Error("failed to render revision options", "error", err, "namespace", namespace)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -307,26 +358,53 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		logger.Error("failed to get revision graph", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	nsList, err := catalog.ListNamespaces(s.store)
 	if err != nil {
+		logger.Error("failed to list namespaces", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	revisions, err := catalog.ListRevisionsByName(s.store, namespace)
 	if err != nil {
+		logger.Error("failed to list revisions for graph page", "error", err, "namespace", namespace)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	type Filters map[graph.ResourceState]struct {
+		Count int
+		Label string
+	}
+
+	filters := Filters{
+		graph.StateNoop:    {Label: "No changes"},
+		graph.StateCreate:  {Label: "Created"},
+		graph.StateDelete:  {Label: "Deleted"},
+		graph.StateModify:  {Label: "Updated"},
+		graph.StateReplace: {Label: "Replaced"},
+	}
+
+	for _, node := range graphData.Nodes {
+		state := graph.StateNoop
+		if node.State != "" {
+			state = node.State
+		}
+		f := filters[state]
+		f.Count++
+		filters[state] = f
 	}
 
 	data := struct {
 		Title             string
 		ActivePage        string
 		Graph             graph.Graph
+		Filters           Filters
 		Namespaces        []catalog.NamespaceView
 		Revisions         []catalog.RevisionView
 		SelectedNamespace string
@@ -336,6 +414,7 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		Title:             "Infraview - Graph",
 		ActivePage:        "graph",
 		Graph:             *graphData,
+		Filters:           filters,
 		Namespaces:        nsList,
 		Revisions:         revisions,
 		SelectedNamespace: namespace,
@@ -348,7 +427,8 @@ func (s *Server) handleRevisionGraph(w http.ResponseWriter, r *http.Request) {
 		renderTarget = "content"
 		w.Header().Set("HX-Push-Url", "/graph/"+namespace+"/"+revision)
 	}
-	if err := s.graphTmpl.ExecuteTemplate(w, renderTarget, data); err != nil {
+	if err := s.assets.Graph.ExecuteTemplate(w, renderTarget, data); err != nil {
+		logger.Error("failed to render graph template", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -370,12 +450,14 @@ func (s *Server) handlePutGraph(w http.ResponseWriter, r *http.Request) {
 	var plan tfjson.Plan
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&plan); err != nil {
+		logger.Warn("invalid plan json received", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, "invalid terraform plan json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	g, err := graph.New(&plan)
 	if err != nil {
+		logger.Warn("failed to build graph from plan", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, "failed to build graph: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -384,11 +466,21 @@ func (s *Server) handlePutGraph(w http.ResponseWriter, r *http.Request) {
 
 	rev, err := catalog.SavePlan(s.store, namespace, revision, name, *metadata, g)
 	if err != nil {
+		logger.Error("failed to save plan", "error", err, "namespace", namespace, "revision", revision)
 		http.Error(w, "failed to save plan", http.StatusInternalServerError)
 		return
 	}
 
+	logger.Info("plan saved", "namespace", namespace, "revision", revision,
+		"created", metadata.Created, "updated", metadata.Updated, "deleted", metadata.Deleted)
+
+	result := struct {
+		Endpoint string `json:"endpoint"`
+	}{
+		Endpoint: fmt.Sprintf("/graph/%v/%v", namespace, rev.Hash),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(rev)
+	json.NewEncoder(w).Encode(result)
 }

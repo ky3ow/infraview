@@ -3,8 +3,12 @@ package graph
 import (
 	"errors"
 	"fmt"
+
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/ky3ow/infraview/pkg/log"
 )
+
+var logger = log.New("graph")
 
 // Enhances *existing* resource nodes with their state
 // and changes in form of json objects
@@ -15,7 +19,8 @@ func (g *Graph) discoverResourceChanges(p *tfjson.Plan) error {
 		node, ok := g.Nodes[c.Address]
 
 		if !ok {
-			errs = append(errs, fmt.Errorf("Node %v not found", c.Address))
+			logger.Warn("resource change has no matching node", "address", c.Address)
+			errs = append(errs, fmt.Errorf("node %v not found", c.Address))
 			continue
 		}
 
@@ -69,7 +74,7 @@ func (g *Graph) discoverParentState() {
 				}
 			}
 		}
-		
+
 		if !allSame {
 			parentState = StateModify
 		}

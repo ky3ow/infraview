@@ -1,0 +1,10 @@
+{
+  "values": {
+    "id": {
+      "string": "child-core-id"
+    },
+    "integer": {
+      "number": "2"
+    }
+  }
+}

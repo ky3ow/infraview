@@ -14,25 +14,15 @@ const stateColors = {
 	noop: "transparent",
 };
 
-// States that participate in filtering.
-const FILTERABLE_STATES = ["create", "delete", "modify", "noop", "replace"];
-
-const stateLabels = {
-	create: "Create",
-	delete: "Delete",
-	modify: "Modify",
-	noop: "No-op",
-	replace: "Replace",
-};
-
 let state = {};
 
 function init() {
 	state.graph = JSON.parse(document.getElementById("graph-data").text);
 	state.sidebar = document.getElementById("node-details-sidebar");
-	state.activeFilters = Object.fromEntries(FILTERABLE_STATES.map(s => [s, true]));
 
 	const [nodes, edges] = prepareNodes(state.graph);
+
+	state.details = document.querySelector("details-panel");
 
 	state.cy = cytoscape({
 		container: document.getElementById("graph"),
@@ -53,8 +43,19 @@ function init() {
 	state.cy.on("mouseover", "node", cyHandleDimmingStart);
 	state.cy.on("mouseout", "node", cyHandleDimmingEnd);
 
-	renderStateFilters();
-	applyFilters();
+	document.getElementById("state-filters").addEventListener("change", filterChangeHandler);
+	document.querySelector(".state-filter-reset-btn").addEventListener("click", filtersHandleShowAll);
+
+	const sidebarToggle = document.querySelector(".sidebar-toggle");
+	if (sidebarToggle) {
+		sidebarToggle.addEventListener("click", () => {
+			document.querySelector(".graph-layout").classList.toggle("sidebar-open");
+		});
+	}
+
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		filter.disabled = false;
+	}
 }
 
 function cleanup() {
@@ -69,9 +70,13 @@ function cleanup() {
 		state.pulseInterval = null;
 	}
 
-	closeNodeDetails();
+	const filtersContainer = document.getElementById("state-filters");
+	const resetBtn = document.querySelector(".state-filter-reset-btn");
+
+	if (filtersContainer) filtersContainer.removeEventListener("change", filterChangeHandler);
+	if (resetBtn) resetBtn.removeEventListener("click", filtersHandleShowAll);
+
 	state.graph = null;
-	state.activeFilters = null;
 }
 
 function escapeSvgText(value) {
@@ -185,6 +190,7 @@ function createPulsing() {
 			});
 		});
 	}, 800);
+	return timer;
 }
 
 function renderChangeRows(changes) {
@@ -210,43 +216,34 @@ function renderChangeRows(changes) {
 
 		if (oldVal == null && newVal == null) continue;
 
-		let oldClass, oldContent, newClass, newContent;
+		let oldContent, newContent;
 
 		if (isNew) {
-			oldClass = "value-null";
-			oldContent = "<new>";
-			newClass = "value-created";
-			newContent = renderValueInline(newVal);
+			oldContent = html`<span class="value-null">&lt;new&gt;</span>`;
+			newContent = renderValue(newVal, "value-created");
 		} else if (isDeleted) {
-			oldClass = "value-regular";
-			oldContent = renderValueInline(oldVal);
-			newClass = "value-deleted";
-			newContent = "<deleted>";
+			oldContent = renderValue(oldVal, "value-regular");
+			newContent = html`<span class="value-deleted">&lt;deleted&gt;</span>`;
 		} else {
-			oldClass = "value-regular";
-			oldContent = renderValueInline(oldVal);
+			oldContent = renderValue(oldVal, "value-regular");
 
 			if (newVal == null && oldVal != null) {
-				newClass = "value-deleted";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-deleted");
 			} else if (newVal != null && oldVal == null) {
-				newClass = "value-created";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-created");
 			} else if (JSON.stringify(oldVal) === JSON.stringify(newVal)) {
-				newClass = "value-regular";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-regular");
 			} else {
-				newClass = "value-updated";
-				newContent = renderValueInline(newVal);
+				newContent = renderValue(newVal, "value-updated");
 			}
 		}
 
 		rows.push(html`
 			<div class="change-row">
 				<dt class="change-key">${key}</dt>
-				<dd><span class=${oldClass}>${oldContent}</span></dd>
+				<dd>${oldContent}</dd>
 				<span class="change-arrow">→</span>
-				<dd><span class=${newClass}>${newContent}</span></dd>
+				<dd>${newContent}</dd>
 			</div>
 		`);
 	}
@@ -260,111 +257,36 @@ function renderChangeRows(changes) {
 	`;
 }
 
-function renderValueInline(v) {
+function renderValue(v, className) {
+	let str;
 	if (typeof v === "object" && v !== null) {
-		return JSON.stringify(v);
-	}
-	return String(v);
-}
-
-function renderNodeDetails(node) {
-	if (!node) {
-		closeNodeDetails();
-		return;
+		str = JSON.stringify(v);
+	} else {
+		str = String(v);
 	}
 
-	const entries = [
-		["Kind", node.kind],
-		["Type", node.type],
-		["Mode", node.mode],
-		["State", node.state],
-		["Parent", node.parent],
-	].filter(([_, value]) => value);
-
-	render(state.sidebar, html`
-		<aside class="node-details-panel" aria-label="Node details">
-			<header class="node-details-header">
-				<div>
-					<div class="node-details-eyebrow">Node</div>
-					<h2>${node.address}</h2>
-				</div>
-				<button class="node-details-close" type="button" aria-label="Close node details" onclick=${closeNodeDetails}>&times;</button>
-			</header>
-			<div class="node-details-content">
-				${entries.length ? html`
-					<dl class="node-details-list">
-						${entries.map(([label, value]) => html`
-							<div>
-								<dt>${label}</dt>
-								<dd>${value}</dd>
-							</div>
-						`)}
-					</dl>
-				` : ""}
-				${node.parameters?.length ? "": "" /* html`
-					<section class="node-details-section">
-						<h3>Parameters</h3>
-						<ul>
-							${node.parameters.map((parameter) => html`<li>${parameter}</li>`)}
-						</ul>
-					</section>
-				` : ""*/}
-				${node.changes ? html`
-					<section class="node-details-section">
-						<h3>Changes</h3>
-						${renderChangeRows(node.changes)}
-					</section>
-				` : ""}
-			</div>
-		</aside>
-	`);
-	state.sidebar.classList.add("is-open");
-}
-
-function closeNodeDetails() {
-	render(state.sidebar, html``);
-	state.sidebar.classList.remove("is-open");
-}
-
-function countNodesByState() {
-	const counts = {};
-	for (const filterState of FILTERABLE_STATES) {
-		counts[filterState] = state.cy.nodes(`[state="${filterState}"]`).length;
+	if (str.startsWith("{") || str.startsWith("[")) {
+		try {
+			const parsed = JSON.parse(str);
+			const pretty = JSON.stringify(parsed, null, 2);
+			return html`<pre class="change-value-json ${className}">${pretty}</pre>`;
+		} catch (e) {
+			// not valid JSON, fall through
+		}
 	}
-	return counts;
+
+	return html`<span class="${className}">${str}</span>`;
 }
 
-function renderStateFilters() {
-	const counts = countNodesByState();
-	const filterContainer = document.getElementById("state-filters");
+function filterChangeHandler(event) {
+	applyFilters();
+}
 
-	// TODO move this hack to markup
-	render(filterContainer, html`
-		<div class="state-filter-list">
-			${FILTERABLE_STATES.map(filterState => html`
-				<label class="state-filter-item">
-					<span class="state-filter-color-dot" style="background:${stateColors[filterState]};border:1px solid #ccc"></span>
-					<span class="state-filter-label">${stateLabels[filterState]}</span>
-					<span class="state-filter-count">${counts[filterState]}</span>
-					<input
-						type="checkbox"
-						class="state-filter-checkbox"
-						checked=${state.activeFilters[filterState]}
-						onchange=${() => {
-							state.activeFilters[filterState] = !state.activeFilters[filterState];
-							applyFilters();
-							renderStateFilters();
-						}}
-					/>
-				</label>
-			`)}
-		</div>
-		<button class="state-filter-reset-btn" onclick=${() => {
-			for (const s of FILTERABLE_STATES) state.activeFilters[s] = true;
-			applyFilters();
-			renderStateFilters();
-		}}>Show All</button>
-	`);
+function filtersHandleShowAll() {
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		filter.checked = true;
+	}
+	applyFilters();
 }
 
 function cyHandleDetailsOpen(event) {
@@ -373,12 +295,12 @@ function cyHandleDetailsOpen(event) {
 		return;
 	}
 	const id = event.target.id();
-	renderNodeDetails(state.graph.nodes[id]);
+	state.details.open(state.graph.nodes[id])
 }
 
 function cyHandleDetailsClose(event) {
 	if (event.target === state.cy) {
-		closeNodeDetails();
+		state.details.close();
 	}
 }
 
@@ -493,7 +415,9 @@ function applyFilters() {
 	const CONTAINER_KINDS = new Set(["module", "resource_loop", "module_loop"]);
 
 	const ownHidden = new Set();
-	for (const [filterState, visible] of Object.entries(state.activeFilters)) {
+	for (const filter of document.querySelectorAll(".state-filter-checkbox")) {
+		const visible = filter.checked;
+		const filterState = filter.dataset.filterState;
 		if (!visible) {
 			state.cy.nodes(`[state="${filterState}"]`).forEach(n => {
 				// Modules/loops with modify state are exempt - never hidden
@@ -663,5 +587,85 @@ document.addEventListener("htmx:afterSwap", (e) => {
 		init();
 	}
 });
+
+class Details extends HTMLElement {
+	node = null;
+	_open = false;
+
+	constructor() { super(); }
+
+	connectedCallback() {
+		this._render();
+	}
+
+	disconnectedCallback() {
+		this.close();
+	}
+
+	open(node) {
+		if(node) {
+			this.node = node;
+			this._open = true;
+			this.parentElement.classList.add("is-open");
+			this._render();
+		}
+	}
+
+	close() {
+		this.node = null;
+		this._open = false;
+		this.parentElement.classList.remove("is-open");
+		this._render();
+	}
+
+	_render() {
+		if (!this._open) {
+			render(this, html``);
+			return;
+		}
+
+		const node = this.node;
+
+		const entries = [
+			["Kind", node.kind],
+			["Type", node.type],
+			["Mode", node.mode],
+			["State", node.state],
+			["Parent", node.parent],
+		].filter(([_, value]) => value);
+
+		render(this, html`
+				<aside class="node-details-panel" aria-label="Node details">
+					<header class="node-details-header">
+						<div>
+							<div class="node-details-eyebrow">Node</div>
+							<h2>${node.address}</h2>
+						</div>
+						<button class="node-details-close" type="button" aria-label="Close node details" onclick=${() => this.close()}>&times;</button>
+					</header>
+					<div class="node-details-content">
+						${entries.length ? html`
+							<dl class="node-details-list">
+								${entries.map(([label, value]) => html`
+									<div>
+										<dt>${label}</dt>
+										<dd>${value}</dd>
+									</div>
+								`)}
+							</dl>
+						` : ""}
+						${node.changes ? html`
+							<section class="node-details-section">
+								<h3>Changes</h3>
+								${renderChangeRows(node.changes)}
+							</section>
+						` : ""}
+					</div>
+				</aside>
+		`);
+	}
+}
+
+customElements.define("details-panel", Details);
 
 init();

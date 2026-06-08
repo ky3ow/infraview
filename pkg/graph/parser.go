@@ -1,4 +1,4 @@
-// TODO handle and log all errors
+// TODO handle moving with PreviousAddress
 // TODO better data shaping for ease of manipulation
 // TODO count/foreach for modules
 // TODO dynamic
@@ -218,14 +218,17 @@ func (g *Graph) discoverInstanceEdgesRecurse(m *tfjson.StateModule) error {
 	for _, r := range m.Resources {
 		node, ok := g.Nodes[r.Address]
 		if !ok {
+			logger.Warn("instance edge: no node for address", "address", r.Address)
 			errs = append(errs, fmt.Errorf("discover instance edges(root): no node with address %v", r.Address))
 		} else if node.isInstance {
 			for _, dep := range r.DependsOn {
-				g.AddEdge(Edge{
+				if err := g.AddEdge(Edge{
 					From: dep,
 					To:   node.Address,
 					Type: EdgeInstance,
-				})
+				}); err != nil {
+					logger.Warn("instance edge: failed to add edge", "from", dep, "to", node.Address, "error", err)
+				}
 			}
 		}
 	}
@@ -290,14 +293,17 @@ func (g *Graph) processStateModule(m *tfjson.StateModule) error {
 	for _, r := range m.Resources {
 		node, ok := g.Nodes[r.Address]
 		if !ok {
+			logger.Warn("deleted edge: no node for address", "address", r.Address)
 			errs = append(errs, fmt.Errorf("discover deleted edges(root): no node with address %v", r.Address))
 		} else if node.State == StateDelete && !node.isInstance {
 			for _, dep := range r.DependsOn {
-				g.AddEdge(Edge{
+				if err := g.AddEdge(Edge{
 					From: dep,
 					To:   node.Address,
 					Type: EdgeTransitive,
-				})
+				}); err != nil {
+					logger.Warn("deleted edge: failed to add edge", "from", dep, "to", node.Address, "error", err)
+				}
 			}
 		}
 	}
@@ -315,20 +321,24 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 
 		// implicit dependencies
 		walkExpressions(r.Expressions, func(_, from string) {
-			g.AddEdge(Edge{
+			if err := g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, from),
 				To:   absoluteAddress,
 				Type: EdgeDirect,
-			})
+			}); err != nil {
+				logger.Warn("edge discovery: failed to add implicit dependency edge", "from", from, "to", absoluteAddress, "error", err)
+			}
 		})
 
 		// explicit dependencies
 		for _, dep := range r.DependsOn {
-			g.AddEdge(Edge{
+			if err := g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, dep),
 				To:   absoluteAddress,
 				Type: EdgeDirect,
-			})
+			}); err != nil {
+				logger.Warn("edge discovery: failed to add explicit dependency edge", "from", dep, "to", absoluteAddress, "error", err)
+			}
 		}
 
 		// implicit loop dependencies
@@ -336,11 +346,13 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			countExpressions := make(map[string]*tfjson.Expression)
 			countExpressions["count_expression"] = r.CountExpression
 			walkExpressions(countExpressions, func(_, from string) {
-				g.AddEdge(Edge{
+				if err := g.AddEdge(Edge{
 					From: tfJoin(cfg.Address, from),
 					To:   absoluteAddress,
 					Type: EdgeDirect,
-				})
+				}); err != nil {
+					logger.Warn("edge discovery: failed to add count expression edge", "from", from, "to", absoluteAddress, "error", err)
+				}
 			})
 		}
 
@@ -348,11 +360,13 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 			foreachExpressions := make(map[string]*tfjson.Expression)
 			foreachExpressions["for_each_expression"] = r.ForEachExpression
 			walkExpressions(foreachExpressions, func(_, from string) {
-				g.AddEdge(Edge{
+				if err := g.AddEdge(Edge{
 					From: tfJoin(cfg.Address, from),
 					To:   absoluteAddress,
 					Type: EdgeDirect,
-				})
+				}); err != nil {
+					logger.Warn("edge discovery: failed to add for_each expression edge", "from", from, "to", absoluteAddress, "error", err)
+				}
 			})
 		}
 
@@ -361,11 +375,13 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 	// process module variables
 	// Expressions are nil for root module
 	walkExpressions(mc.Expressions, func(to, from string) {
-		g.AddEdge(Edge{
+		if err := g.AddEdge(Edge{
 			From: tfJoin(cfg.Parent, from),
 			To:   tfJoin(cfg.Address, "var", to),
 			Type: EdgeDirect,
-		})
+		}); err != nil {
+			logger.Warn("edge discovery: failed to add variable edge", "from", from, "to", to, "error", err)
+		}
 	})
 
 	for name, o := range mc.Module.Outputs {
@@ -375,11 +391,13 @@ func (g *Graph) discoverEdges(mc *tfjson.ModuleCall, cfg ModuleConfig) {
 		expressions[name] = o.Expression // TODO meh
 
 		walkExpressions(expressions, func(_, from string) {
-			g.AddEdge(Edge{
+			if err := g.AddEdge(Edge{
 				From: tfJoin(cfg.Address, from),
 				To:   fullname,
 				Type: EdgeDirect,
-			})
+			}); err != nil {
+				logger.Warn("edge discovery: failed to add output edge", "from", from, "to", fullname, "error", err)
+			}
 		})
 	}
 
@@ -408,6 +426,7 @@ func (g *Graph) ensureModules() {
 			name, parent, err := getModuleParts(current)
 
 			if err != nil {
+				logger.Warn("ensure modules: failed to parse module address", "address", current, "error", err)
 				break
 			}
 
@@ -428,11 +447,11 @@ func (g *Graph) AddEdge(e Edge) error {
 	from, okFrom := g.Nodes[e.From]
 
 	if !okTo || !okFrom {
-		return fmt.Errorf("Unhandled edge between %v -> %v", to, from)
+		return fmt.Errorf("unhandled edge between %v -> %v", from.Address, to.Address)
 	}
 
 	if from.Kind == ModuleNode && to.Kind == OutputNode {
-		return fmt.Errorf("Edge module->output was tried to create(%v -> %v)", to, from)
+		return fmt.Errorf("edge module->output was tried to create(%v -> %v)", from.Address, to.Address)
 	}
 
 	if to.isInstance || from.isInstance {
@@ -539,13 +558,19 @@ func New(plan *tfjson.Plan) (*Graph, error) {
 
 	// Enrich nodes
 	// TODO Move ProcessParams passes here
-	graph.discoverResourceChanges(plan)
+	if err := graph.discoverResourceChanges(plan); err != nil {
+		logger.Warn("graph enrichment: some resource changes had no matching nodes", "error", err)
+	}
 	graph.discoverParentState()
 
 	// Discover edges
 	graph.discoverEdges(&root, ModuleConfig{})
-	graph.discoverDeletedResourceEdges(plan) // call only after enrichments
-	graph.discoverInstanceEdges(plan)
+	if err := graph.discoverDeletedResourceEdges(plan); err != nil {
+		logger.Warn("graph: errors during deleted resource edge discovery", "error", err)
+	} // call only after enrichments
+	if err := graph.discoverInstanceEdges(plan); err != nil {
+		logger.Warn("graph: errors during instance edge discovery", "error", err)
+	}
 	graph.discoverDeletedLoopEdges()
 	graph.promoteTransitiveEdges()
 

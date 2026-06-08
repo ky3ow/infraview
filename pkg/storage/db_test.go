@@ -44,7 +44,7 @@ func TestEnsureTables(t *testing.T) {
 		tables = append(tables, name)
 	}
 
-	expected := []string{"edges", "namespaces", "node_details", "nodes", "revisions"}
+	expected := []string{"edges", "namespaces", "node_details", "nodes", "revisions", "tokens"}
 	filtered := make([]string, 0, len(tables))
 	for _, t := range tables {
 		if t == "sqlite_sequence" {

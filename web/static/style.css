@@ -298,8 +298,7 @@ body {
   top: 48px;
   right: 0;
   bottom: 0;
-  width: 340px;
-  max-width: min(340px, 85vw);
+  max-width: min(520px, 85vw);
   z-index: 10;
   pointer-events: none;
 }
@@ -405,10 +404,24 @@ body {
 .change-row {
   display: grid;
   grid-template-columns: minmax(0, 90px) minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 0.35rem 0.5rem;
   padding: 0.5rem;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.change-row dd {
+  min-width: 0;
+  margin: 0;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.78rem;
+}
+
+.change-row dd span {
+  display: inline;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 .change-row:has(.value-created) {
@@ -439,9 +452,35 @@ body {
   text-align: center;
 }
 
-.change-row dd {
+.change-value-json {
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  background: #f6f8fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
   font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.change-value-json.value-created {
+  color: #16a34a;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.change-value-json.value-deleted {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.change-value-json.value-updated {
+  color: #ca8a04;
+  background: #fef0d2;
+  border-color: #fde68a;
 }
 
 /* Value color semantics */
@@ -553,4 +592,79 @@ body {
 
 .logout-btn:hover {
   background: #ffeeee;
+}
+
+.state-filter-color-dot {
+  border: 1px solid #cccccc;
+  background: var(--state-color);
+}
+
+.state-filter-color-dot[data-filter-state="noop"] {
+  --state-color: transparent;
+}
+.state-filter-color-dot[data-filter-state="create"] {
+  --state-color: #27ae60;
+}
+.state-filter-color-dot[data-filter-state="modify"] {
+  --state-color: #f39c12;
+}
+.state-filter-color-dot[data-filter-state="delete"] {
+  --state-color: #e74c3c;
+}
+.state-filter-color-dot[data-filter-state="replace"] {
+  --state-color: #8e44ad;
+}
+
+/* Sidebar toggle button - hidden on desktop */
+.sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.sidebar-toggle:hover {
+  background: #f2f4f7;
+}
+
+@media (max-width: 768px) {
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .graph-layout {
+    position: relative;
+  }
+
+  .graph-layout .sidebar {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 10;
+    background: #fff;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.12);
+  }
+
+  .graph-layout.sidebar-open .sidebar {
+    display: block;
+  }
+
+  .graph-layout.sidebar-open .sidebar-content {
+    padding-top: 44px;
+  }
 }

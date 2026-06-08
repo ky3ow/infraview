@@ -298,8 +298,7 @@ body {
   top: 48px;
   right: 0;
   bottom: 0;
-  width: 480px;
-  max-width: min(480px, 85vw);
+  max-width: min(520px, 85vw);
   z-index: 10;
   pointer-events: none;
 }

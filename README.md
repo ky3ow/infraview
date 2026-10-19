@@ -6,7 +6,7 @@ This is server that accepts terraform plans, and visualizes them via interactive
 
 Ideally, i would've wanted to have something that can receive terraform plan from CI pipeline, and then could be viewed by your teammates. Because terraform graphs can be quite big and noisy, there should also be filtering to show and hide resources, panning, zooming, like infinite canvas.
 
-And this project is exactly it, an **attempt** (incomplete one) to have interactive graph visualization for teams that can be hosted in your environment, operated from your CI or other automation and be accessed by your team for sanity checks.
+And this project is exactly it, an **attempt** (that requires more work, so proceed with caution if desire to use) to have interactive graph visualization for teams that can be hosted in your environment, operated from your CI or other automation and be accessed by your team for sanity checks.
 
 Prior art is mentioned [here](#inspirations)
 
@@ -15,6 +15,8 @@ Prior art is mentioned [here](#inspirations)
 https://github.com/user-attachments/assets/489eea61-c480-4a21-b216-4fb199bb2b36
 
 Note: this demo is using [this repo as demonstration](https://github.com/ky3ow/test-infraview), which includes the github action for PRs and uses [unfinished branch of infraview](https://github.com/ky3ow/infraview/tree/feature/prepare_bachelors)
+
+First infrastructure graph is actually the infra of infraview deployment itself, EC2 that hosts the server, secret store that is used to fetch tokens and (not so)minimal networking/security for the setup.  
 
 # Main functionality
 

@@ -1,36 +1,70 @@
+# Infraview
+
+This is server that accepts terraform plans, and visualizes them via interactive web ui.
+
+Motivation: sometimes other people need to review plan change, and there isn't really a nice way to do so. Console output is quite terse and doesn't even show dependencies that clearly, and built-in graph visualization is lacking.
+
+Ideally, i would've wanted to have something that can receive terraform plan from CI pipeline, and then could be viewed by your teammate/lead. Because terraform graphs can be quite big and noisy, there should also be filtering to show and hide resources, panning, zooming, like infinite canvas.
+
+So this is exactly it, **attempt** (an incomplete one) to have interactive graph visualization for teams that can be hosted in your environment, operated from your CI or other automation and be accessed by your team for sanity checks.
+
+Prior art is mentioned [here](#inspirations)
+
+# Demo
+
+# Main functionality
+
+- Http server for interactive graph
+- Visual graph of your resources and variables, with connections between them and dependencies
+- Highlight resource operations(create,update,delete)
+- Filtering
+- Grouping(loop/module level, can collapse with double-tap)
+- Resource details, old/new values (partial, not good visualization)
+- Plan history, separated by "namespaces" (e.g. you create namespace per git branch)
+- Stores data in sqlite db
+
+# Insiprations
+
+- [rover](https://github.com/im2nguyen/rover)
+- [terraform-visual](https://github.com/hieven/terraform-visual)
+- [pluralith](https://github.com/Pluralith/pluralith-cli) : half broken and seems to be abandoned by hashicorp
+
 # How to run
 
 ```bash
 go mod tidy
 go run ./cmd/infraview-server # starts web server at localhost:8080
+
+curl -X POST "http://localhost:8080/api/v1/graph/example/1?name=first" \
+  -H "Content-Type: application/json" \
+  -d@./test/graph/00-simple-resource/plan.json
+# now go to localhost:8080, there will be example namespace with interactive revision 1
+```
+
+## About json plans
+
+To generate one yourself, do the following:
+
+```bash
+# in terraform directory
+terraform plan -out=plan.out
+terraform show -json plan.out > plan.json
 ```
 
 # Dependencies
 
 developed with go 1.26.3
 
-# Main functionality
+# Bugs
 
-- Http server for interactive graph +
-- See graph of your resources and variables, with connections between and dependencies +
-- Highlight resource operations(create,update,delete) +
-- Filtering +
-- Grouping(loop/module level, can collapse with double-tap) +
-- Resource details, what triggered the change, old/new values +-
+No namespace and revision url encoding, so will break on spaces and symbols which have to be encoded right now
 
-## TODO
-- DB
-- Plan history, separated by "namespaces"(e.g. you create namespace per git branch) and UI for it
-- Proper rest api for ingesting
-- auth
-- env variables for server
-
-## Nice to have
+# Nice to haves
 
 - User rules for custom grouping
-- Addons(e.g. infracost annotations, probably just client side visual things from data supplied with plan?)
+- Addons(e.g. infracost annotations, probably just client side visuals from data supplied with plan?)
 
-## Non-goals
+# Non-goals
 
 Any sort of actions in Core, like applies or approvals, can be partially solved with addons. 
 
@@ -40,35 +74,7 @@ Example: show the pending approval in UI, and on click redirect user to actual a
 
 go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 
-# Checklist
-
-- [x] Treat special keywords while generating graph
-  - [ ] local. ? < not planned
-  - [x] var. (edge)
-  - [x] module. (edge + Parent thingy)
-  - [x] each. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
-  - [x] count. (edge + parent? individual nodes are only from Planned values, references and parents should be in configuration) 
-- [x] module outputs
-- [x] deletion - get node from `prior_state`
-
-# Insiprations
-
-- [rover](https://github.com/im2nguyen/rover)
-- [terraform-visual](https://github.com/hieven/terraform-visual)
-- [pluralith](https://github.com/Pluralith/pluralith-cli)
-
-# Links
-
-- [terraform json output](https://developer.hashicorp.com/terraform/internals/json-format)
-- [go helper library](https://github.com/hashicorp/terraform-json)
-- [some article](https://getcoal.medium.com/golang-handling-terraform-files-a37371c621e3)
-- [mock terraform provider used for initial testing](https://github.com/hashicorp/terraform-provider-tfcoremock/tree/main)
-- [layout](https://github.com/golang-standards/project-layout?tab=readme-ov-file#go-directories)
-- [Cytoscape.js, library for graph visualization](https://js.cytoscape.org)
-- [cytoscape-klay, another algorithm for cytoscape]()
-- [another graph lib](https://www.sigmajs.org)
-
-# Terraform json representation
+# Technical notes about terraform plan structure
 
 ```json
 {
@@ -249,20 +255,17 @@ go test ./test/graph/ -cover -v -coverpkg=./pkg/graph
 }
 ```
 
+## Building a graph
 
-## Food for thought
+Probably should pre-process config,changes and prior_state into something simpler, rather than using tf plan fields right away
 
-### Need IR?
-
-Pre-process config, changes and prior_state in something simpler
-
-### Configuration
+## Configuration
 
 Has `root_module` that contains array of resources
 Has `module_calls`, a map of "name -> metadata", contains source, expressions(call parameters), module field(map of outputs, array of resources)
 Has `resource_drift` which has resource changes that also occured because of DRIFTS
 
-#### Resource
+### Resource
 
 - address
 - mode(managed, or data)
@@ -272,7 +275,7 @@ Has `resource_drift` which has resource changes that also occured because of DRI
 - expressions array
 - depends_on array
 
-#### Expressions
+### Expressions
 
 Map of Name -> value
 

@@ -2,15 +2,19 @@
 
 This is server that accepts terraform plans, and visualizes them via interactive web ui.
 
-Motivation: sometimes other people need to review plan change, and there isn't really a nice way to do so. Console output is quite terse and doesn't even show dependencies that clearly, and built-in graph visualization is lacking.
+**Motivation**: sometimes other people need to review plan change, and there isn't really a nice way to do so. Console output is quite terse and doesn't even show dependencies that clearly, and built-in graph visualization is lacking.
 
-Ideally, i would've wanted to have something that can receive terraform plan from CI pipeline, and then could be viewed by your teammate/lead. Because terraform graphs can be quite big and noisy, there should also be filtering to show and hide resources, panning, zooming, like infinite canvas.
+Ideally, i would've wanted to have something that can receive terraform plan from CI pipeline, and then could be viewed by your teammates. Because terraform graphs can be quite big and noisy, there should also be filtering to show and hide resources, panning, zooming, like infinite canvas.
 
-So this is exactly it, **attempt** (an incomplete one) to have interactive graph visualization for teams that can be hosted in your environment, operated from your CI or other automation and be accessed by your team for sanity checks.
+And this project is exactly it, an **attempt** (incomplete one) to have interactive graph visualization for teams that can be hosted in your environment, operated from your CI or other automation and be accessed by your team for sanity checks.
 
 Prior art is mentioned [here](#inspirations)
 
 # Demo
+
+https://github.com/user-attachments/assets/489eea61-c480-4a21-b216-4fb199bb2b36
+
+Note: this demo is using [this repo as demonstration](https://github.com/ky3ow/test-infraview), which includes the github action for PRs and uses [unfinished branch of infraview](https://github.com/ky3ow/infraview/tree/feature/prepare_bachelors)
 
 # Main functionality
 
@@ -23,7 +27,7 @@ Prior art is mentioned [here](#inspirations)
 - Plan history, separated by "namespaces" (e.g. you create namespace per git branch)
 - Stores data in sqlite db
 
-# Insiprations
+# Inspirations
 
 - [rover](https://github.com/im2nguyen/rover)
 - [terraform-visual](https://github.com/hieven/terraform-visual)
@@ -33,12 +37,20 @@ Prior art is mentioned [here](#inspirations)
 
 ```bash
 go mod tidy
-go run ./cmd/infraview-server # starts web server at localhost:8080
+go run ./cmd/infraview-server serve -no-auth # starts web server at localhost:8080
+```
 
-curl -X POST "http://localhost:8080/api/v1/graph/example/1?name=first" \
+In separate shell make a request to upload plan
+
+```bash
+curl -X PUT "http://localhost:8080/api/v1/graph/example/1?name=first" \
   -H "Content-Type: application/json" \
-  -d@./test/graph/00-simple-resource/plan.json
-# now go to localhost:8080, there will be example namespace with interactive revision 1
+  -d@./test/graph/00-simple-resource/plan.json # Now go to localhost:8080, there will be example namespace with interactive revision 1
+```
+
+To see all examples you can run seed script
+```bash
+./seed.sh
 ```
 
 ## About json plans
@@ -49,6 +61,18 @@ To generate one yourself, do the following:
 # in terraform directory
 terraform plan -out=plan.out
 terraform show -json plan.out > plan.json
+```
+
+## Deployment
+
+```bash
+go build -o infraview -tags=embed_assets ./cmd/infraview-server
+
+TOK_READ="$(./infraview token generate -type read)"
+TOK_WRITE="$(./infraview token generate -type write)"
+# store tokens where preferred
+
+./infraview serve # with auth, TOK_READ will be prompted in ui, TOK_WRITE should be supplied in "Authorization: Bearer $TOK_WRITE" header
 ```
 
 # Dependencies
